@@ -1,0 +1,29 @@
+{
+    "defaults": {
+        "basic" : {
+            "test-type": ["stream"],
+	        "wsize": ["16384"],
+            "duration": ["60"],
+            "protocol": ["tcp"],
+            "nthreads": ["1"]
+        },
+        "mandatory" : {}
+    },
+    "requirements": {
+        "test_types" : {
+            "description" : "all possible test-types",
+            "arguments" : [ "test-type" ],
+            "value_regex" : "^stream$|^maerts$|^rr$"
+        },
+        "protocols" : {
+            "description" : "all possible protocols",
+            "arguments" : [ "protocol" ],
+            "value_regex" : "^tcp$|^udp$"
+        },
+        "positive_integer" : {
+            "description" : "a whole number greater than 0",
+            "arguments" : [ "wsize", "rsize", "nthreads", "duration" ],
+            "value_regex" : "[0-9]+"
+        }
+    }
+}

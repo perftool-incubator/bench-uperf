@@ -1,0 +1,12 @@
+#!/bin/bash
+exec >uperf-server-stderrout.txt 
+exec 2>&1
+
+echo "args; $@"
+echo "RS_CS_ID: $RS_CS_ID"
+echo "hostname: `hostname`"
+id=`echo $RS_CS_ID | awk -F- '{print $2}'`
+let "port = 5 * $id + 20000"
+uperf -s -P $port &
+pid=$!
+echo $pid >server.pid

@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<profile name="netperf">
+  <group nthreads="$nthreads">
+    <transaction iterations="1">
+      <flowop type="connect" options="remotehost=localhost protocol=tcp"/>
+    </transaction>
+    <transaction duration="10">
+      <flowop type="write" options="count=256 size=$wsize"/>
+    </transaction>
+    <transaction iterations="1">
+      <flowop type="disconnect"/>
+    </transaction>
+  </group>
+</profile>

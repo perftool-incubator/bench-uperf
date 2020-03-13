@@ -1,0 +1,36 @@
+{
+    "workshop": {
+        "schema": {
+            "version": "2020.03.02"
+        }
+    },
+    "userenvs": [
+	    {
+	        "name": "default",
+	        "requirements": [
+            "uperf_src"
+	        ]
+	    }
+    ],
+    "requirements": [
+	    {
+	        "name": "uperf_src",
+	        "type": "source",
+	        "source_info": {
+		        "url": "https://github.com/atheurer/uperf/archive/v1.0.6-amt2.tar.gz",
+		        "filename": "v1.0.6-amt2.tar.gz",
+		        "commands": { 
+		            "unpack": "tar -xzf v1.0.6-amt2.tar.gz",
+		            "get_dir": "tar -tzf v1.0.6-amt2.tar.gz | head -n 1",
+		            "commands": [
+			            "./configure --disable-sctp",
+			            "make",
+			            "make install",
+			            "ldconfig",
+			            "/usr/local/bin/uperf -V"
+		            ]
+                }
+	        }
+        }
+    ]
+}
