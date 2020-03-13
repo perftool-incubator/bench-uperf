@@ -1,0 +1,28 @@
+{
+  "benchmark": "uperf",
+  "controller" : {
+    "post-script" : "%bench-dir%uperf-post-process"
+  },
+  "client" : {
+    "files-from-controller": [
+        {
+            "src": "%bench-dir%/uperf-client",
+            "dest": "/usr/bin/"
+        },
+        {
+            "src": "%bench-dir%/xml-files",
+            "dest": "/tmp/"
+        }
+    ],
+    "bin" : "uperf-client"
+  },
+  "server" : {
+    "files-from-controller": [
+        {
+            "src": "%bench-dir%/uperf-server",
+            "dest": "/usr/bin/"
+        }
+    ],
+    "bin" : "uperf-server"
+  }
+}

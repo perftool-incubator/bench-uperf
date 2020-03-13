@@ -1,0 +1,79 @@
+#!/bin/bash
+exec >uperf-client-stderrout.txt
+exec 2>&1
+
+echo "args: $@"
+echo "RS_CS_ID: $RS_CS_ID"
+echo "hostname: `hostname`"
+# defaults
+nthreads=1
+protocol=tcp
+wsize=1024
+rsize=1024
+duration=60
+remotehost=localhost
+test_type=stream
+
+longopts="test-type:,protocol:,wsize:,nthreads:,remotehost:,duration:"
+opts=$(getopt -q -o "" --longoptions "$longopts" -n "getopt.sh" -- "$@");
+if [ $? -ne 0 ]; then
+    printf -- "\tUnrecognized option specified\n\n"
+    exit 1
+fi
+eval set -- "$opts";
+while true; do
+    case "$1" in
+        --test-type)
+            shift;
+            test_type=$test_type
+            echo "test_type=$test_type"
+            if [ ! -e /tmp/xml-files/$test_type.xml ]; then
+                echo "ERROR: could not find /tmp/xml-files/$test_type.xml"
+                exit 1
+            fi
+            shift;
+            ;;
+        --nthreads)
+            shift;
+            nthreads=$1
+            echo "nthreads=$nthreads"
+            shift;
+            ;;
+        --protocol)
+            shift;
+            protocol=$protocol
+            echo "protocol=$protocol"
+            shift
+            ;;
+        --wsize)
+            shift;
+            wsize=$wsize
+            echo "wsize=$wsize"
+            shift
+            ;;
+        --remotehost)
+            shift;
+            remotehost=$remotehost
+            echo "remotehost=$remotehost"
+            shift
+            ;;
+        --duration)
+            shift;
+            duration=$duration
+            echo "duration=$duration"
+            shift
+            ;;
+        --)
+            shift;
+            break
+            ;;
+        *)
+            echo "Invalid optioni: $1"
+            exit 1
+    esac
+done
+
+id=`echo $RS_CS_ID | awk -F- '{print $2}'`
+let "port = 5 * $id + 20000"
+nthreads=$nthreads protocol=$protocol remotehost=$remotehost duration=$duration \
+    wsize=$wsize uperf -m /tmp/xml-files/$test_type.xml -P $port

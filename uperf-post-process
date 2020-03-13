@@ -1,0 +1,89 @@
+#!/usr/bin/perl
+## -*- mode: perl; indent-tabs-mode: t; perl-indent-level: 4 -*-
+## vim: autoindent tabstop=4 shiftwidth=4 expandtab softtabstop=4 filetype=perl
+
+use strict;
+use warnings;
+use JSON::XS;
+use Data::Dumper;
+use Getopt::Long;
+
+my $test_type;
+my $cs_id = 1;
+my $cs_type = "client";
+my $nthreads = 1;
+my $remotehost = "localhost";
+my $ignore;
+my $hostname = "localhost";
+
+GetOptions ("test-type=s" => \$test_type,
+            "nthreads=i" => \$nthreads,
+            "remotehost=s" => \$remotehost,
+            "wsize=i" => \$ignore,
+            "rsize=i" => \$ignore,
+            "protocol=s" => \$ignore,
+            "duration=i" => \$ignore,
+            );
+
+if (defined $ENV{RS_CS_ID} and $ENV{RS_CS_ID} =~ /(client|server)-(\d+)/) {
+    $cs_type = $1;
+    $cs_id = $2;
+}
+
+my @metrics;
+my %metric_types;
+my $result_file = "uperf-client-stderrout.txt";
+if ( -e $result_file) {
+    open(FH, $result_file) || die "Could not open file " . $result_file;
+    my $ts, my $prev_ts, my $bytes, my $prev_bytes, my $ops, my $prev_ops;;
+    while (<FH>) {
+        if ( /^timestamp_ms:(\d+)\.\d+\s+name:Txn2\s+nr_bytes:(\d+)\s+nr_ops:(\d+)/ ) {
+            $ts = $1, $bytes = $2, $ops = $3;
+            if (defined $prev_ts and ((my $ts_diff = ($ts - $prev_ts) / 1000) > 0)) {
+                my %sample = ('end' => $ts, 'value' =>  ($bytes - $prev_bytes) / $ts_diff / 125000);
+                push(@{ $metric_types{'Gbps'}{'data'} }, \%sample);
+                if ($test_type eq "rr") {
+                    my $tps = ($ops - $prev_ops) / $ts_diff / 2;
+                    my %sample = ('end' => $ts, 'value' => $tps);
+                    push(@{ $metric_types{'trans-sec'}{'data'} }, \%sample);
+                    my $lat = $nthreads / $tps *1000000;
+                    %sample = ('end' => $ts, 'value' => $lat);
+                    push(@{ $metric_types{'latency'}{'data'} }, \%sample);
+                }
+            }
+            $prev_ts = $ts;
+            $prev_bytes = $bytes;
+            $prev_ops = $ops;
+        }
+    }
+    close(FH);
+    # Assign meta-data to any metric data we found and push the data & metadata to the
+    # metrics array
+    for my $type (keys %metric_types) {
+        if (scalar @{ $metric_types{$type}{'data'} } > 0) {
+            my %desc = ('source' => 'uperf', 'type' => $type, 'name-format' => '%hostname%');
+            if ($type eq "lat") {
+                $desc{'class'} = 'latency';
+            } else {
+                $desc{'class'} = 'throughput';
+            }
+            $metric_types{$type}{'desc'} = \%desc;
+            $metric_types{$type}{'names'}{'hostname'} = $hostname;
+            push(@metrics, \%{ $metric_types{$type}});
+        }
+    }
+}
+# Associate the metrics with a benchmark-period (in this case "measurement")
+my %sample;
+my @periods;
+my %period = ('name' => 'measurement');
+$period{'metrics'} = \@metrics;
+push(@periods, \%period);
+$sample{'periods'} = \@periods;
+if (scalar @metrics > 0) {
+    my $coder = JSON::XS->new;
+    open(JSON_FH, ">post-process-data.json") ||
+        die("Could not open file post-process-data.json for writing\n");
+    print JSON_FH $coder->encode(\%sample);
+    close JSON_FH;
+}
