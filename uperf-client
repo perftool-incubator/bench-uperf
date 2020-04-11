@@ -41,25 +41,25 @@ while true; do
             ;;
         --protocol)
             shift;
-            protocol=$protocol
+            protocol=$1
             echo "protocol=$protocol"
             shift
             ;;
         --wsize)
             shift;
-            wsize=$wsize
+            wsize=$1
             echo "wsize=$wsize"
             shift
             ;;
         --remotehost)
             shift;
-            remotehost=$remotehost
+            remotehost=$1
             echo "remotehost=$remotehost"
             shift
             ;;
         --duration)
             shift;
-            duration=$duration
+            duration=$1
             echo "duration=$duration"
             shift
             ;;

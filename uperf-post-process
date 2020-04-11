@@ -40,14 +40,14 @@ if ( -e $result_file) {
         if ( /^timestamp_ms:(\d+)\.\d+\s+name:Txn2\s+nr_bytes:(\d+)\s+nr_ops:(\d+)/ ) {
             $ts = $1, $bytes = $2, $ops = $3;
             if (defined $prev_ts and ((my $ts_diff = ($ts - $prev_ts) / 1000) > 0)) {
-                my %sample = ('end' => $ts, 'value' =>  ($bytes - $prev_bytes) / $ts_diff / 125000);
+                my %sample = ('end' => int $ts, 'value' =>  0.0 + ($bytes - $prev_bytes) / $ts_diff / 125000);
                 push(@{ $metric_types{'Gbps'}{'data'} }, \%sample);
                 if ($test_type eq "rr") {
                     my $tps = ($ops - $prev_ops) / $ts_diff / 2;
-                    my %sample = ('end' => $ts, 'value' => $tps);
+                    my %sample = ('end' => int $ts, 'value' => (0.0 + $tps));
                     push(@{ $metric_types{'trans-sec'}{'data'} }, \%sample);
                     my $lat = $nthreads / $tps *1000000;
-                    %sample = ('end' => $ts, 'value' => $lat);
+                    %sample = ('end' => int $ts, 'value' => (0.0 + $lat));
                     push(@{ $metric_types{'latency'}{'data'} }, \%sample);
                 }
             }
@@ -77,6 +77,7 @@ if ( -e $result_file) {
 my %sample;
 my @periods;
 my %period = ('name' => 'measurement');
+$sample{'rickshaw-bench-metric'}{'schema'}{'version'} = "2020.03.18";
 $period{'metrics'} = \@metrics;
 push(@periods, \%period);
 $sample{'periods'} = \@periods;
