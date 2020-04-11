@@ -2,7 +2,7 @@
 <profile name="netperf">
   <group nthreads="$nthreads">
     <transaction iterations="1">
-      <flowop type="connect" options="remotehost=localhost protocol=tcp"/>
+      <flowop type="connect" options="remotehost=$remotehost protocol=tcp"/>
     </transaction>
     <transaction duration="10">
       <flowop type="write" options="count=256 size=$wsize"/>
