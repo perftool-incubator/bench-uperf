@@ -1,28 +1,38 @@
 {
-  "benchmark": "uperf",
-  "controller" : {
-    "post-script" : "%bench-dir%uperf-post-process"
-  },
-  "client" : {
-    "files-from-controller": [
-        {
-            "src": "%bench-dir%/uperf-client",
-            "dest": "/usr/bin/"
-        },
-        {
-            "src": "%bench-dir%/xml-files",
-            "dest": "/tmp/"
+    "rickshaw-benchmark": {
+        "schema": {
+            "version": "2020.04.14"
         }
-    ],
-    "bin" : "uperf-client"
-  },
-  "server" : {
-    "files-from-controller": [
-        {
-            "src": "%bench-dir%/uperf-server",
-            "dest": "/usr/bin/"
-        }
-    ],
-    "bin" : "uperf-server"
-  }
+    },
+    "benchmark": "uperf",
+    "controller": {
+        "post-script": "%bench-dir%uperf-post-process"
+    },
+    "client": {
+        "files-from-controller": [
+            {
+                "src": "%bench-dir%/uperf-client",
+                "dest": "/usr/bin/"
+            },
+            {
+                "src": "%bench-dir%/xml-files",
+                "dest": "/tmp/"
+            }
+        ],
+        "start": "uperf-client"
+    },
+    "server": {
+        "files-from-controller": [
+            {
+                "src": "%bench-dir%/uperf-server-start",
+                "dest": "/usr/bin/"
+            },
+            {
+                "src": "%bench-dir%/uperf-server-stop",
+                "dest": "/usr/bin/"
+            }
+        ],
+        "start": "uperf-server-start",
+        "stop": "uperf-server-stop"
+    }
 }

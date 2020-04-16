@@ -1,0 +1,15 @@
+#!/bin/bash
+exec >uperf-server-stop-stderrout.txt 
+exec 2>&1
+echo "args; $@"
+
+if [ -e uperf-server.pid ]; then
+    pid=`cat uperf-server.pid`
+    echo "Going to kill pid $pid"
+    kill -15 $pid
+else
+    echo "uperf-server.pid not found"
+    echo "PWD: `/bin/pwd`"
+    echo "LS: `/bin/ls`"
+    exit 1
+fi
