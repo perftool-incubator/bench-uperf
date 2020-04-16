@@ -12,9 +12,9 @@ my $test_type;
 my $cs_id = 1;
 my $cs_type = "client";
 my $nthreads = 1;
-my $remotehost = "localhost";
+my $remotehost;
 my $ignore;
-my $hostname = "localhost";
+my $hostname;
 
 GetOptions ("test-type=s" => \$test_type,
             "nthreads=i" => \$nthreads,
@@ -40,7 +40,7 @@ if ( -e $result_file) {
         if ( /^timestamp_ms:(\d+)\.\d+\s+name:Txn2\s+nr_bytes:(\d+)\s+nr_ops:(\d+)/ ) {
             $ts = $1, $bytes = $2, $ops = $3;
             if (defined $prev_ts and ((my $ts_diff = ($ts - $prev_ts) / 1000) > 0)) {
-                my %sample = ('end' => int $ts, 'value' =>  0.0 + ($bytes - $prev_bytes) / $ts_diff / 125000);
+                my %sample = ('end' => int $ts, 'value' =>  8.0 * ($bytes - $prev_bytes) / 1000000000 / $ts_diff);
                 push(@{ $metric_types{'Gbps'}{'data'} }, \%sample);
                 if ($test_type eq "rr") {
                     my $tps = ($ops - $prev_ops) / $ts_diff / 2;
@@ -61,14 +61,14 @@ if ( -e $result_file) {
     # metrics array
     for my $type (keys %metric_types) {
         if (scalar @{ $metric_types{$type}{'data'} } > 0) {
-            my %desc = ('source' => 'uperf', 'type' => $type, 'name-format' => '%hostname%');
+            my %desc = ('source' => 'uperf', 'type' => $type, 'name-format' => '');
             if ($type eq "lat") {
                 $desc{'class'} = 'latency';
             } else {
                 $desc{'class'} = 'throughput';
             }
             $metric_types{$type}{'desc'} = \%desc;
-            $metric_types{$type}{'names'}{'hostname'} = $hostname;
+            #$metric_types{$type}{'names'}{'hostname'} = $hostname;
             push(@metrics, \%{ $metric_types{$type}});
         }
     }
