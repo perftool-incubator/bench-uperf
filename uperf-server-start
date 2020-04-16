@@ -1,0 +1,31 @@
+#!/bin/bash
+exec >uperf-server-stderrout.txt 
+exec 2>&1
+echo "args; $@"
+if [ -z "$RS_CS_LABEL" ]; then
+    echo "RS_CS_LABEL not defined, exiting"
+    exit 1
+else
+    echo "RS_CS_LABEL: $RS_CS_LABEL"
+fi
+echo "hostname: `hostname`"
+id=`echo $RS_CS_LABEL | awk -F- '{print $2}'`
+re='^[1-9][0-9]*$'
+if [[ ! "$id" =~ $re ]]; then
+    echo "ID must a be a positive interger, exiting"
+    exit 1
+fi
+let "port = 5 * $id"
+let "port = $port + 20000"
+cmd="uperf -s -P $port"
+echo "going to run: $cmd"
+$cmd 2>&1 >uperf-server-start.txt &
+pid=$!
+echo $pid >uperf-server.pid
+# Wait a little bit to see if the server errored out
+sleep 10
+if grep -q -i error uperf-server-start.txt; then
+    echo "Server failed to start:"
+    cat uperf-server-start.txt
+    exit 1
+fi

@@ -3,7 +3,12 @@ exec >uperf-client-stderrout.txt
 exec 2>&1
 
 echo "args: $@"
-echo "RS_CS_ID: $RS_CS_ID"
+if [ -z "$RS_CS_LABEL" ]; then
+    echo "RS_CS_LABEL is not defined, exiting"
+    exit 1
+else
+    echo "RS_CS_LABEL: $RS_CS_LABEL"
+fi
 echo "hostname: `hostname`"
 # defaults
 nthreads=1
@@ -11,7 +16,7 @@ protocol=tcp
 wsize=1024
 rsize=1024
 duration=60
-remotehost=localhost
+remotehost=""
 test_type=stream
 
 longopts="test-type:,protocol:,wsize:,nthreads:,remotehost:,duration:"
@@ -73,7 +78,25 @@ while true; do
     esac
 done
 
-id=`echo $RS_CS_ID | awk -F- '{print $2}'`
-let "port = 5 * $id + 20000"
+if [ -z "$remotehost" ]; then
+    echo "rmotehost is not set"
+    exit 1
+fi
+
+test_xml="/tmp/xml-files/$test_type.xml"
+if [ ! -e $test_xml ]; then
+    echo "$test_xml not found"
+    exit 1
+fi
+
+id=`echo $RS_CS_LABEL | awk -F- '{print $2}'`
+re='^[1-9][0-9]*$'
+if [[ ! "$id" =~ $re ]]; then
+    echo "ID must a be a positive interger, exiting"
+    exit 1
+fi
+
+let "port = 5 * $id"
+let "port = $port + 20000"
 nthreads=$nthreads protocol=$protocol remotehost=$remotehost duration=$duration \
     wsize=$wsize uperf -m /tmp/xml-files/$test_type.xml -P $port
