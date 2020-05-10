@@ -10,7 +10,7 @@
         "mandatory" : {}
     },
     "requirements": {
-        "test_types" : {
+        "test-types" : {
             "description" : "all possible test-types",
             "arguments" : [ "test-type" ],
             "value_regex" : "^stream$|^maerts$|^rr$"
@@ -24,6 +24,11 @@
             "description" : "a whole number greater than 0",
             "arguments" : [ "wsize", "rsize", "nthreads", "duration" ],
             "value_regex" : "[0-9]+"
+        },
+        "host-or-ip" : {
+            "description" : "a hostname or IP address",
+            "arguments" : [ "remotehost" ],
+            "value_regex" : ".+"
         }
     }
 }
