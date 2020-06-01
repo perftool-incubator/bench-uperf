@@ -2,6 +2,13 @@
 exec >uperf-server-stderrout.txt 
 exec 2>&1
 echo "args; $@"
+echo
+echo "pwd:"
+/bin/pwd
+echo
+echo "ls -alR:"
+ls -alR
+echo
 if [ -z "$RS_CS_LABEL" ]; then
     echo "RS_CS_LABEL not defined, exiting"
     exit 1
@@ -9,14 +16,23 @@ else
     echo "RS_CS_LABEL: $RS_CS_LABEL"
 fi
 echo "hostname: `hostname`"
+echo
 id=`echo $RS_CS_LABEL | awk -F- '{print $2}'`
 re='^[1-9][0-9]*$'
 if [[ ! "$id" =~ $re ]]; then
     echo "ID must a be a positive interger, exiting"
     exit 1
 fi
+
+# Queue ip info, to be sent to client
+echo '{"recipient":{"type":"all","id":"all"},"user-object":{"iproute":' >msgs/tx/ip
+ip -j a >>msgs/tx/ip
+echo '}}' >>msgs/tx/ip
+
+# Calculate port
 let "port = 5 * $id"
 let "port = $port + 20000"
+
 cmd="uperf -s -P $port"
 echo "going to run: $cmd"
 $cmd 2>&1 >uperf-server-start.txt &

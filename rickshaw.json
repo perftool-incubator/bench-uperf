@@ -1,7 +1,7 @@
 {
     "rickshaw-benchmark": {
         "schema": {
-            "version": "2020.04.14"
+            "version": "2020.05.18"
         }
     },
     "benchmark": "uperf",
@@ -11,6 +11,10 @@
     "client": {
         "files-from-controller": [
             {
+                "src": "%bench-dir%/uperf-get-runtime",
+                "dest": "/usr/bin/"
+            },
+            {
                 "src": "%bench-dir%/uperf-client",
                 "dest": "/usr/bin/"
             },
@@ -19,6 +23,7 @@
                 "dest": "/tmp/"
             }
         ],
+        "runtime": "uperf-get-runtime",
         "start": "uperf-client"
     },
     "server": {
