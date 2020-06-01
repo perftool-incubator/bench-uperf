@@ -3,13 +3,22 @@ exec >uperf-client-stderrout.txt
 exec 2>&1
 
 echo "args: $@"
+echo
 if [ -z "$RS_CS_LABEL" ]; then
     echo "RS_CS_LABEL is not defined, exiting"
     exit 1
 else
     echo "RS_CS_LABEL: $RS_CS_LABEL"
+    echo
 fi
 echo "hostname: `hostname`"
+echo
+echo "pwd:"
+/bin/pwd
+echo
+echo "ls -alR:"
+/bin/ls -alR
+echo
 # defaults
 nthreads=1
 protocol=tcp
@@ -17,9 +26,10 @@ wsize=1024
 rsize=1024
 duration=60
 remotehost=""
+server_ifname="eth0"
 test_type=stream
 
-longopts="test-type:,protocol:,wsize:,nthreads:,remotehost:,duration:"
+longopts="test-type:,protocol:,wsize:,nthreads:,remotehost:,duration:,server-ifname:"
 opts=$(getopt -q -o "" --longoptions "$longopts" -n "getopt.sh" -- "$@");
 if [ $? -ne 0 ]; then
     printf -- "\tUnrecognized option specified\n\n"
@@ -62,6 +72,12 @@ while true; do
             echo "remotehost=$remotehost"
             shift
             ;;
+        --server-ifname)
+            shift;
+            server_ifname=$1
+            echo "server_ifname=$server_ifname"
+            shift
+            ;;
         --duration)
             shift;
             duration=$1
@@ -79,7 +95,19 @@ while true; do
 done
 
 if [ -z "$remotehost" ]; then
-    echo "rmotehost is not set"
+    echo "Remotehost was not set via cmdline args, checking any messages from server"
+    if [ -e "msgs/rx/client-start:1" ]; then
+        echo "Found msgs/rx/client-start:1"
+        ipaddr=`jq -r '.iproute[] | select(.ifname == "'$server_ifname'") | .addr_info[] | select(.family == "inet") | .local' "msgs/rx/client-start:1"`
+        if [ ! -z "$ipaddr" ]; then
+            echo "Found server IP $ipaddr"
+            remotehost=$ipaddr
+        fi
+    fi
+fi
+
+if [ -z "$remotehost" ]; then
+    echo "remotehost is not set"
     exit 1
 fi
 
@@ -98,5 +126,6 @@ fi
 
 let "port = 5 * $id"
 let "port = $port + 20000"
+/bin/cp /tmp/xml-files/$test_type.xml test.xml
 nthreads=$nthreads protocol=$protocol remotehost=$remotehost duration=$duration \
-    wsize=$wsize uperf -m /tmp/xml-files/$test_type.xml -P $port
+    wsize=$wsize uperf -m test.xml -P $port

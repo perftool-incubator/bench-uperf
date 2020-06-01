@@ -8,7 +8,8 @@
 	    {
 	        "name": "default",
 	        "requirements": [
-            "uperf_src"
+            "uperf_src",
+            "iproute"
 	        ]
 	    }
     ],
@@ -31,6 +32,15 @@
 		            ]
                 }
 	        }
+        },
+	    {
+	        "name": "iproute",
+	        "type": "distro",
+	        "distro_info": {
+                "packages": [
+                    "iproute"
+                ]
+            }
         }
     ]
 }
