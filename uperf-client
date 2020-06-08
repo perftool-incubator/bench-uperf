@@ -27,9 +27,9 @@ rsize=1024
 duration=60
 remotehost=""
 server_ifname="eth0"
-test_type=stream
+test_type=""
 
-longopts="test-type:,protocol:,wsize:,nthreads:,remotehost:,duration:,server-ifname:"
+longopts="test-type:,protocol:,rsize:,wsize:,nthreads:,remotehost:,duration:,server-ifname:"
 opts=$(getopt -q -o "" --longoptions "$longopts" -n "getopt.sh" -- "$@");
 if [ $? -ne 0 ]; then
     printf -- "\tUnrecognized option specified\n\n"
@@ -40,7 +40,7 @@ while true; do
     case "$1" in
         --test-type)
             shift;
-            test_type=$test_type
+            test_type=$1
             echo "test_type=$test_type"
             if [ ! -e /tmp/xml-files/$test_type.xml ]; then
                 echo "ERROR: could not find /tmp/xml-files/$test_type.xml"
@@ -58,6 +58,12 @@ while true; do
             shift;
             protocol=$1
             echo "protocol=$protocol"
+            shift
+            ;;
+        --rsize)
+            shift;
+            rsize=$1
+            echo "rsize=$rsize"
             shift
             ;;
         --wsize)
@@ -89,7 +95,7 @@ while true; do
             break
             ;;
         *)
-            echo "Invalid optioni: $1"
+            echo "Invalid option: $1"
             exit 1
     esac
 done
@@ -98,7 +104,7 @@ if [ -z "$remotehost" ]; then
     echo "Remotehost was not set via cmdline args, checking any messages from server"
     if [ -e "msgs/rx/client-start:1" ]; then
         echo "Found msgs/rx/client-start:1"
-        ipaddr=`jq -r '.iproute[] | select(.ifname == "'$server_ifname'") | .addr_info[] | select(.family == "inet") | .local' "msgs/rx/client-start:1"`
+        ipaddr=`jq -r '.iproute[] | select(.ifname == "'$server_ifname'") | .addr_info[] | select(.family == "inet") | .local' "msgs/rx/client-start:1" | head -1`
         if [ ! -z "$ipaddr" ]; then
             echo "Found server IP $ipaddr"
             remotehost=$ipaddr
@@ -126,6 +132,20 @@ fi
 
 let "port = 5 * $id"
 let "port = $port + 20000"
+
+echo "test-xml-files:"
+/bin/ls /tmp/xml-files
+echo
+
+echo "ip a:"
+ip a
+echo
+
 /bin/cp /tmp/xml-files/$test_type.xml test.xml
-nthreads=$nthreads protocol=$protocol remotehost=$remotehost duration=$duration \
-    wsize=$wsize uperf -m test.xml -P $port
+nthreads=$nthreads \
+protocol=$protocol \
+remotehost=$remotehost \
+duration=$duration \
+wsize=$wsize \
+rsize=$rsize \
+uperf -m test.xml -P $port
