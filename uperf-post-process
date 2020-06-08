@@ -40,15 +40,22 @@ if ( -e $result_file) {
         if ( /^timestamp_ms:(\d+)\.\d+\s+name:Txn2\s+nr_bytes:(\d+)\s+nr_ops:(\d+)/ ) {
             $ts = $1, $bytes = $2, $ops = $3;
             if (defined $prev_ts and ((my $ts_diff = ($ts - $prev_ts) / 1000) > 0)) {
-                my %sample = ('end' => int $ts, 'value' =>  8.0 * ($bytes - $prev_bytes) / 1000000000 / $ts_diff);
-                push(@{ $metric_types{'Gbps'}{'data'} }, \%sample);
+                {
+                    my %s = ('end' => int $ts,
+                             'value' =>  8.0 * ($bytes - $prev_bytes) / 1000000000 / $ts_diff);
+                    push(@{ $metric_types{'Gbps'}{'data'} }, \%s);
+                }
                 if ($test_type eq "rr") {
+                    # RR transactions are two operations
                     my $tps = ($ops - $prev_ops) / $ts_diff / 2;
-                    my %sample = ('end' => int $ts, 'value' => (0.0 + $tps));
-                    push(@{ $metric_types{'trans-sec'}{'data'} }, \%sample);
-                    my $lat = $nthreads / $tps *1000000;
-                    %sample = ('end' => int $ts, 'value' => (0.0 + $lat));
-                    push(@{ $metric_types{'latency'}{'data'} }, \%sample);
+                    {
+                        my %s = ('end' => int $ts, 'value' => 0.0 + $tps);
+                        push(@{ $metric_types{'trans-sec'}{'data'} }, \%s);
+                    }
+                    {
+                        my %s = ('end' => int $ts, 'value' => 0.0 + $nthreads / $tps *1000000);
+                        push(@{ $metric_types{'latency'}{'data'} }, \%s);
+                    }
                 }
             }
             $prev_ts = $ts;
@@ -68,7 +75,6 @@ if ( -e $result_file) {
                 $desc{'class'} = 'throughput';
             }
             $metric_types{$type}{'desc'} = \%desc;
-            #$metric_types{$type}{'names'}{'hostname'} = $hostname;
             push(@metrics, \%{ $metric_types{$type}});
         }
     }

@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+<profile name="connect-request-response">
+  <group nthreads="$nthreads">
+    <transaction duration="$duration">
+      <flowop type="connect" options="remotehost=$remotehost protocol=$protocol"/>
+      <flowop type="write" options="size=$wsize"/>
+      <flowop type="read"  options="size=$rsize"/>
+      <flowop type="disconnect"/>
+    </transaction>
+  </group>
+</profile>

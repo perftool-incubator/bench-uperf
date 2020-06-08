@@ -1,11 +1,12 @@
 <?xml version="1.0"?>
-<profile name="stream">
+<profile name="request-response">
   <group nthreads="$nthreads">
     <transaction iterations="1">
       <flowop type="connect" options="remotehost=$remotehost protocol=$protocol"/>
     </transaction>
     <transaction duration="$duration">
-      <flowop type="write" options="count=256 size=$wsize"/>
+      <flowop type="write" options="size=$wsize"/>
+      <flowop type="read"  options="size=$rsize"/>
     </transaction>
     <transaction iterations="1">
       <flowop type="disconnect"/>

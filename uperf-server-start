@@ -29,6 +29,10 @@ echo '{"recipient":{"type":"all","id":"all"},"user-object":{"iproute":' >msgs/tx
 ip -j a >>msgs/tx/ip
 echo '}}' >>msgs/tx/ip
 
+echo "ip a"
+ip a
+echo
+
 # Calculate port
 let "port = 5 * $id"
 let "port = $port + 20000"
