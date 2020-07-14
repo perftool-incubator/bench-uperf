@@ -23,6 +23,7 @@ GetOptions ("test-type=s" => \$test_type,
             "rsize=i" => \$ignore,
             "protocol=s" => \$ignore,
             "duration=i" => \$ignore,
+            "server-ifname=s" => \$ignore
             );
 
 if (defined $ENV{RS_CS_ID} and $ENV{RS_CS_ID} =~ /(client|server)-(\d+)/) {
@@ -32,6 +33,7 @@ if (defined $ENV{RS_CS_ID} and $ENV{RS_CS_ID} =~ /(client|server)-(\d+)/) {
 
 my @metrics;
 my %metric_types;
+my $primary_metric = 'Gbps';
 my $result_file = "uperf-client-stderrout.txt";
 if ( -e $result_file) {
     open(FH, $result_file) || die "Could not open file " . $result_file;
@@ -46,6 +48,7 @@ if ( -e $result_file) {
                     push(@{ $metric_types{'Gbps'}{'data'} }, \%s);
                 }
                 if ($test_type eq "rr") {
+                    my $primary_metric = 'trans-sec';
                     # RR transactions are two operations
                     my $tps = ($ops - $prev_ops) / $ts_diff / 2;
                     {
@@ -87,6 +90,8 @@ $sample{'rickshaw-bench-metric'}{'schema'}{'version'} = "2020.03.18";
 $period{'metrics'} = \@metrics;
 push(@periods, \%period);
 $sample{'periods'} = \@periods;
+$sample{'primary-period'} = 'measurement';
+$sample{'primary-metric'} = $primary_metric;
 if (scalar @metrics > 0) {
     my $coder = JSON::XS->new;
     open(JSON_FH, ">post-process-data.json") ||
