@@ -24,20 +24,22 @@ if [[ ! "$id" =~ $re ]]; then
     exit 1
 fi
 
-# Queue ip info, to be sent to client
-echo '{"recipient":{"type":"all","id":"all"},"user-object":{"iproute":' >msgs/tx/ip
-ip -j a >>msgs/tx/ip
-echo '}}' >>msgs/tx/ip
+# There are always 2 ports for these uperf tests, and ports should always
+# start at 30000 to avoid port number reassignment
+let "control_port = 2 * $id"
+let "control_port = $control_port + 30000"
+let "data_port = $control_port + 1"
+
+#TODO: IP should be determined by $ifname (will need to add argparse) or first non-loopback IP found
+ip="192.168.1.1"
+# Queue ip/port info, to be sent to endpoint
+echo '{"recipient":{"type":"all","id":"all"},"user-object":{"svc":{"ip":"'$ip'","ports":['$control_port,$data_port']}}}' >msgs/tx/svc
 
 echo "ip a"
 ip a
 echo
 
-# Calculate port
-let "port = 5 * $id"
-let "port = $port + 20000"
-
-cmd="uperf -s -P $port"
+cmd="uperf -s -P $control_port"
 echo "going to run: $cmd"
 $cmd 2>&1 >uperf-server-start.txt &
 pid=$!
@@ -49,3 +51,8 @@ if grep -q -i error uperf-server-start.txt; then
     cat uperf-server-start.txt
     exit 1
 fi
+echo ps:
+ps aux | grep uperf
+echo
+echo ss -tlnp:
+ss -tlnp

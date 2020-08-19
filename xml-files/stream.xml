@@ -2,7 +2,7 @@
 <profile name="stream">
   <group nthreads="$nthreads">
     <transaction iterations="1">
-      <flowop type="connect" options="remotehost=$remotehost protocol=$protocol"/>
+      <flowop type="connect" options="remotehost=$remotehost protocol=$protocol port=$port"/>
     </transaction>
     <transaction duration="$duration">
       <flowop type="write" options="count=256 size=$wsize"/>

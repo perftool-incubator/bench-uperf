@@ -26,6 +26,8 @@ wsize=1024
 rsize=1024
 duration=60
 remotehost=""
+control_port=""
+data_port=""
 server_ifname="eth0"
 test_type=""
 
@@ -100,14 +102,32 @@ while true; do
     esac
 done
 
+id=`echo $RS_CS_LABEL | awk -F- '{print $2}'`
+re='^[1-9][0-9]*$'
+if [[ ! "$id" =~ $re ]]; then
+    echo "ID must a be a positive interger, exiting"
+    exit 1
+fi
+
 if [ -z "$remotehost" ]; then
-    echo "Remotehost was not set via cmdline args, checking any messages from server"
-    if [ -e "msgs/rx/client-start:1" ]; then
-        echo "Found msgs/rx/client-start:1"
-        ipaddr=`jq -r '.iproute[] | select(.ifname == "'$server_ifname'") | .addr_info[] | select(.family == "inet") | .local' "msgs/rx/client-start:1" | head -1`
+    echo "Remotehost was not set via cmdline args, checking any messages from server & endpoint"
+    file="msgs/rx/client-start:1"
+    if [ -e "$file" ]; then
+        echo "Found $file"
+        ipaddr=`jq -r '.svc.ip' $file`
         if [ ! -z "$ipaddr" ]; then
             echo "Found server IP $ipaddr"
             remotehost=$ipaddr
+        fi
+        port=`jq -r '.svc.ports[0]' $file`
+        if [ ! -z "$port" ]; then
+            echo "Found server control port $port"
+            control_port=$port
+        fi
+        port=`jq -r '.svc.ports[1]' $file`
+        if [ ! -z "$port" ]; then
+            echo "Found server data port $port"
+            data_port=$port
         fi
     fi
 fi
@@ -116,6 +136,15 @@ if [ -z "$remotehost" ]; then
     echo "remotehost is not set"
     exit 1
 fi
+if [ -z "$control_port" ]; then
+    let "control_port = 2 * $id"
+    let "control_port = $control_port + 30000"
+    echo "control_port was not set, using default of $control_port"
+fi
+if [ -z "$datal_port" ]; then
+    let "data_port = $control_port + 1"
+    echo "data_port was not set, using default of $data_port"
+fi
 
 test_xml="/tmp/xml-files/$test_type.xml"
 if [ ! -e $test_xml ]; then
@@ -123,15 +152,6 @@ if [ ! -e $test_xml ]; then
     exit 1
 fi
 
-id=`echo $RS_CS_LABEL | awk -F- '{print $2}'`
-re='^[1-9][0-9]*$'
-if [[ ! "$id" =~ $re ]]; then
-    echo "ID must a be a positive interger, exiting"
-    exit 1
-fi
-
-let "port = 5 * $id"
-let "port = $port + 20000"
 
 echo "test-xml-files:"
 /bin/ls /tmp/xml-files
@@ -142,10 +162,14 @@ ip a
 echo
 
 /bin/cp /tmp/xml-files/$test_type.xml test.xml
+echo "remotehost=$remotehost"
+echo "control_port=$control_port"
+echo "data_port=$data_port"
 nthreads=$nthreads \
 protocol=$protocol \
 remotehost=$remotehost \
 duration=$duration \
 wsize=$wsize \
 rsize=$rsize \
-uperf -m test.xml -P $port
+port=$data_port \
+uperf -m test.xml -P $control_port
