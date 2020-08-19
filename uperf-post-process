@@ -55,7 +55,7 @@ if ( -e $result_file) {
                         my %s = ('end' => int $ts, 'value' => 0.0 + $tps);
                         push(@{ $metric_types{'trans-sec'}{'data'} }, \%s);
                     }
-                    {
+                    if ($tps > 0) {
                         my %s = ('end' => int $ts, 'value' => 0.0 + $nthreads / $tps *1000000);
                         push(@{ $metric_types{'latency'}{'data'} }, \%s);
                     }
