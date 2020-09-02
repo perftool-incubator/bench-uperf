@@ -24,20 +24,71 @@ if [[ ! "$id" =~ $re ]]; then
     exit 1
 fi
 
+# defaults
+control_port=""
+data_port=""
+server_ifname=""
+
+longopts="test-type:,protocol:,rsize:,wsize:,nthreads:,remotehost:,duration:,server-ifname:"
+opts=$(getopt -q -o "" --longoptions "$longopts" -n "getopt.sh" -- "$@");
+if [ $? -ne 0 ]; then
+    printf -- "\tUnrecognized option specified\n\n"
+    exit 1
+fi
+eval set -- "$opts";
+while true; do
+    case "$1" in
+        --server-ifname)
+            shift;
+            server_ifname="$1"
+            echo "server_ifname=$server_ifname"
+            shift
+            ;;
+        --test-type|--nthreads|--protocol|--rsize|--wsize|--remotehost|--duration)
+            shift;
+            shift;
+            ;;
+        --)
+            shift;
+            break
+            ;;
+        *)
+            echo "Invalid option: $1"
+            exit 1
+    esac
+done
+
+id=`echo $RS_CS_LABEL | awk -F- '{print $2}'`
+re='^[1-9][0-9]*$'
+if [[ ! "$id" =~ $re ]]; then
+    echo "ID must a be a positive interger, exiting"
+    exit 1
+fi
+
 # There are always 2 ports for these uperf tests, and ports should always
 # start at 30000 to avoid port number reassignment
 let "control_port = 2 * $id"
 let "control_port = $control_port + 30000"
 let "data_port = $control_port + 1"
 
-#TODO: IP should be determined by $ifname (will need to add argparse) or first non-loopback IP found
-ip="192.168.1.1"
+ip -j a >ip.json
+
+ip=""
+# Find the IP of the $server_ifname
+if [ ! -z "$server_ifname" ]; then
+    # Find the element in the 'ip a' array that matches the ifname we are looking for
+    ifname_idx=`jq 'to_entries | .[] | if (.value.ifname == "'$server_ifname'") then .key else null end' ip.json | grep -v null`
+    if [ ! -z "$ifname_idx" ]; then
+        # Find the first ipv4 address
+        addr_idx=`jq '.['$ifname_idx'].addr_info | to_entries | .[] | if (.value.family == "inet") then .key else null end' | grep -v null | head -1`
+            if [ ! -z $addr_idx ]; then
+                ip=`jq -r '.['$ifname_idx'].addr_info['$addr_idx'].local'`
+            fi
+    fi
+fi
+
 # Queue ip/port info, to be sent to endpoint
 echo '{"recipient":{"type":"all","id":"all"},"user-object":{"svc":{"ip":"'$ip'","ports":['$control_port,$data_port']}}}' >msgs/tx/svc
-
-echo "ip a"
-ip a
-echo
 
 cmd="uperf -s -P $control_port"
 echo "going to run: $cmd"
