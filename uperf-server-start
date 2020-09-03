@@ -76,15 +76,33 @@ ip -j a >ip.json
 ip=""
 # Find the IP of the $server_ifname
 if [ ! -z "$server_ifname" ]; then
+    echo "--server-ifname=$server_ifname was found, searching for IP"
     # Find the element in the 'ip a' array that matches the ifname we are looking for
     ifname_idx=`jq 'to_entries | .[] | if (.value.ifname == "'$server_ifname'") then .key else null end' ip.json | grep -v null`
     if [ ! -z "$ifname_idx" ]; then
+        echo "$server_ifname matches index $ifname_idx, looking for ipv4 (inet) in addr_info:"
+        jq '.['$ifname_idx'].addr_info' ip.json
         # Find the first ipv4 address
-        addr_idx=`jq '.['$ifname_idx'].addr_info | to_entries | .[] | if (.value.family == "inet") then .key else null end' | grep -v null | head -1`
-            if [ ! -z $addr_idx ]; then
-                ip=`jq -r '.['$ifname_idx'].addr_info['$addr_idx'].local'`
-            fi
+        addr_idx=`jq '.['$ifname_idx'].addr_info | to_entries | .[] | if (.value.family == "inet") then .key else null end' ip.json | grep -v null | head -1`
+        if [ ! -z $addr_idx ]; then
+            echo "Found inet in index $addr_idx:"
+            jq -r '.['$ifname_idx'].addr_info['$addr_idx']' ip.json
+            ip=`jq -r '.['$ifname_idx'].addr_info['$addr_idx'].local' ip.json`
+        else
+            echo "WARNING: an ipv4 address could not be found for $server_ifname in addr_info:"
+            jq '.['$ifname_idx'].addr_info' ip.json
+        fi
+    else
+        echo "WARNING: ifname_idx was not defined when searching for $ifname"
     fi
+    if [ -z "$ip" ]; then
+        echo "WARNING: IP was not found from $server_ifname"
+    else
+        echo "IP was found: $ip"
+    fi
+else
+    echo "Not going to look for an IP since --server-ifname was not used."
+    echo "Either uperf's bench-params need to include --remotehost, or the endpoint must derive the uperf server's IP"
 fi
 
 # Queue ip/port info, to be sent to endpoint
