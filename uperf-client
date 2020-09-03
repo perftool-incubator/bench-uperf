@@ -110,8 +110,8 @@ if [[ ! "$id" =~ $re ]]; then
 fi
 
 if [ -z "$remotehost" ]; then
-    echo "Remotehost was not set via cmdline args, checking any messages from server & endpoint"
-    file="msgs/rx/client-start:1"
+    echo "Remotehost was not set via cmdline args, checking any messages from the endpoint"
+    file="msgs/rx/endpoint-start:1"
     if [ -e "$file" ]; then
         echo "Found $file"
         ipaddr=`jq -r '.svc.ip' $file`
