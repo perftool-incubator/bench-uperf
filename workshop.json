@@ -24,7 +24,7 @@
 		            "unpack": "tar -xzf v1.0.6-amt2.tar.gz",
 		            "get_dir": "tar -tzf v1.0.6-amt2.tar.gz | head -n 1",
 		            "commands": [
-			            "./configure --disable-sctp",
+			            "CCFLAGS=\"-g\" ./configure --disable-sctp --enable-debug",
 			            "make",
 			            "make install",
 			            "ldconfig",

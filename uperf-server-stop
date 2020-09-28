@@ -7,6 +7,11 @@ if [ -e uperf-server.pid ]; then
     pid=`cat uperf-server.pid`
     echo "Going to kill pid $pid"
     kill -15 $pid
+    sleep 3
+    if [ -e /proc/$pid ]; then
+        echo "PID $pid still exists, trying kill -9"
+        kill -9 $pid
+    fi
 else
     echo "uperf-server.pid not found"
     echo "PWD: `/bin/pwd`"

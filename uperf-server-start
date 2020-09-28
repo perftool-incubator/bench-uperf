@@ -108,8 +108,28 @@ fi
 # Queue ip/port info, to be sent to endpoint
 echo '{"recipient":{"type":"all","id":"all"},"user-object":{"svc":{"ip":"'$ip'","ports":['$control_port,$data_port']}}}' >msgs/tx/svc
 
+echo "Existing listening ports:"
+ss -tlnp
+echo
+
+# Kill any existing process using this port
+echo "Attempt to kill port $control_port via 'ss' if it exists:"
+ss -tlnpK '( sport = '$control_port' )'
+echo
+
+pid=`ss -Otlnp '( sport = '$control_port' )' | awk '{print $6}' | grep -v Peer | awk -Fpid= '{print $2}' | awk -F, '{print $1}' | sort | uniq`
+if [ ! -z "$pid" ]; then
+    echo "Trying to force kill PID $pid with 'kill -9'"
+    kill -9 $pid
+fi
+
+echo "Existing listening ports (after kill):"
+ss -tlnp
+echo
+
 cmd="uperf -s -P $control_port"
 echo "going to run: $cmd"
+export MALLOC_CHECK_=2
 $cmd 2>&1 >uperf-server-start.txt &
 pid=$!
 echo $pid >uperf-server.pid
