@@ -141,10 +141,11 @@ if [ -z "$control_port" ]; then
     let "control_port = $control_port + 30000"
     echo "control_port was not set, using default of $control_port"
 fi
-if [ -z "$datal_port" ]; then
+if [ -z "$data_port" ]; then
     let "data_port = $control_port + 1"
     echo "data_port was not set, using default of $data_port"
 fi
+
 
 test_xml="/tmp/xml-files/$test_type.xml"
 if [ ! -e $test_xml ]; then
