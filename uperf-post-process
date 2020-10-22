@@ -9,8 +9,6 @@ use Data::Dumper;
 use Getopt::Long;
 
 my $test_type;
-my $cs_id = 1;
-my $cs_type = "client";
 my $nthreads = 1;
 my $remotehost;
 my $ignore;
@@ -25,11 +23,6 @@ GetOptions ("test-type=s" => \$test_type,
             "duration=i" => \$ignore,
             "server-ifname=s" => \$ignore
             );
-
-if (defined $ENV{RS_CS_ID} and $ENV{RS_CS_ID} =~ /(client|server)-(\d+)/) {
-    $cs_type = $1;
-    $cs_id = $2;
-}
 
 my @metrics;
 my %metric_types;
@@ -48,16 +41,16 @@ if ( -e $result_file) {
                     push(@{ $metric_types{'Gbps'}{'data'} }, \%s);
                 }
                 if ($test_type eq "rr") {
-                    my $primary_metric = 'trans-sec';
+                    my $primary_metric = 'transactions-sec';
                     # RR transactions are two operations
                     my $tps = ($ops - $prev_ops) / $ts_diff / 2;
                     {
                         my %s = ('end' => int $ts, 'value' => 0.0 + $tps);
-                        push(@{ $metric_types{'trans-sec'}{'data'} }, \%s);
+                        push(@{ $metric_types{'transactions-sec'}{'data'} }, \%s);
                     }
                     if ($tps > 0) {
                         my %s = ('end' => int $ts, 'value' => 0.0 + $nthreads / $tps *1000000);
-                        push(@{ $metric_types{'latency'}{'data'} }, \%s);
+                        push(@{ $metric_types{'round-trip-usec'}{'data'} }, \%s);
                     }
                 }
             }
@@ -72,10 +65,14 @@ if ( -e $result_file) {
     for my $type (keys %metric_types) {
         if (scalar @{ $metric_types{$type}{'data'} } > 0) {
             my %desc = ('source' => 'uperf', 'type' => $type, 'name-format' => '');
-            if ($type eq "lat") {
+            if ($type eq "round-trip-usec") {
                 $desc{'class'} = 'latency';
             } else {
                 $desc{'class'} = 'throughput';
+            }
+            if ($type eq "Gbps") {
+                $desc{'name-format'} = "%iotype%";
+                $desc{'names'} = "readwrite"
             }
             $metric_types{$type}{'desc'} = \%desc;
             push(@metrics, \%{ $metric_types{$type}});
