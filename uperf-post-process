@@ -66,7 +66,7 @@ if ( -e $result_file) {
         if (scalar @{ $metric_types{$type}{'data'} } > 0) {
             my %desc = ('source' => 'uperf', 'type' => $type, 'name-format' => '');
             if ($type eq "round-trip-usec") {
-                $desc{'class'} = 'latency';
+                $desc{'class'} = 'count';
             } else {
                 $desc{'class'} = 'throughput';
             }
