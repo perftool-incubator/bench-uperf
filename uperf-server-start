@@ -145,3 +145,4 @@ ps aux | grep uperf
 echo
 echo ss -tlnp:
 ss -tlnp
+exit 0

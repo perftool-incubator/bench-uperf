@@ -18,13 +18,13 @@
 	        "name": "uperf_src",
 	        "type": "source",
 	        "source_info": {
-		        "url": "https://github.com/atheurer/uperf/archive/v1.0.6-amt2.tar.gz",
-		        "filename": "v1.0.6-amt2.tar.gz",
+		        "url": "https://github.com/uperf/uperf/archive/1.0.7.tar.gz",
+		        "filename": "1.0.7.tar.gz",
 		        "commands": { 
-		            "unpack": "tar -xzf v1.0.6-amt2.tar.gz",
-		            "get_dir": "tar -tzf v1.0.6-amt2.tar.gz | head -n 1",
+		            "unpack": "tar -xzf 1.0.7.tar.gz",
+		            "get_dir": "tar -tzf 1.0.7.tar.gz | head -n 1",
 		            "commands": [
-			            "CCFLAGS=\"-g\" ./configure --disable-sctp --enable-debug",
+			            "CFLAGS=\"-ggdb\" ./configure --disable-sctp --enable-debug",
 			            "make",
 			            "make install",
 			            "ldconfig",

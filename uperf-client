@@ -173,4 +173,18 @@ duration=$duration \
 wsize=$wsize \
 rsize=$rsize \
 port=$data_port \
-uperf -m test.xml -P $control_port
+uperf -R -m test.xml -P $control_port &
+pid=$!
+sleep 10
+sleep $duration
+if [ -e /proc/$pid ]; then
+    echo "uperf client is still running, killing it"
+    kill $pid
+    sleep 3
+    if [ -e /proc/$pid ]; then
+        # hulk smash
+        kill -9 $pid
+    fi
+    exit 1
+fi
+exit 0
