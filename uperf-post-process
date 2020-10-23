@@ -41,7 +41,7 @@ if ( -e $result_file) {
                     push(@{ $metric_types{'Gbps'}{'data'} }, \%s);
                 }
                 if ($test_type eq "rr") {
-                    my $primary_metric = 'transactions-sec';
+                    $primary_metric = 'transactions-sec';
                     # RR transactions are two operations
                     my $tps = ($ops - $prev_ops) / $ts_diff / 2;
                     {
@@ -66,13 +66,14 @@ if ( -e $result_file) {
         if (scalar @{ $metric_types{$type}{'data'} } > 0) {
             my %desc = ('source' => 'uperf', 'type' => $type, 'name-format' => '');
             if ($type eq "round-trip-usec") {
-                $desc{'class'} = 'latency';
+                $desc{'class'} = 'count';
             } else {
                 $desc{'class'} = 'throughput';
             }
             if ($type eq "Gbps") {
-                $desc{'name-format'} = "%iotype%";
-                $desc{'names'} = "readwrite"
+                $desc{'name-format'} = "%cmd%";
+                my %names = ('cmd' => 'readandwrite');
+                $metric_types{$type}{'names'} = \%names;
             }
             $metric_types{$type}{'desc'} = \%desc;
             push(@metrics, \%{ $metric_types{$type}});
