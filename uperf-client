@@ -111,7 +111,9 @@ fi
 
 if [ -z "$remotehost" ]; then
     echo "Remotehost was not set via cmdline args, checking any messages from the endpoint"
-    file="msgs/rx/endpoint-start:1"
+    echo "These files exist in ./msgs/rx:"
+    /bin/ls -l msgs/rx
+    file="msgs/rx/client-start:1"
     if [ -e "$file" ]; then
         echo "Found $file"
         ipaddr=`jq -r '.svc.ip' $file`
@@ -129,6 +131,8 @@ if [ -z "$remotehost" ]; then
             echo "Found server data port $port"
             data_port=$port
         fi
+    else
+        echo "Did not find $file, so cannot get an IP from the server/endpoint"
     fi
 fi
 
@@ -173,18 +177,4 @@ duration=$duration \
 wsize=$wsize \
 rsize=$rsize \
 port=$data_port \
-uperf -R -m test.xml -P $control_port &
-pid=$!
-sleep 10
-sleep $duration
-if [ -e /proc/$pid ]; then
-    echo "uperf client is still running, killing it"
-    kill $pid
-    sleep 3
-    if [ -e /proc/$pid ]; then
-        # hulk smash
-        kill -9 $pid
-    fi
-    exit 1
-fi
-exit 0
+uperf -R -m test.xml -P $control_port
