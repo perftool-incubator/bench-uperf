@@ -1,28 +1,12 @@
 #!/bin/bash
 exec >uperf-server-stderrout.txt 
 exec 2>&1
-echo "args; $@"
-echo
-echo "pwd:"
-/bin/pwd
-echo
-echo "ls -alR:"
-ls -alR
-echo
-if [ -z "$RS_CS_LABEL" ]; then
-    echo "RS_CS_LABEL not defined, exiting"
-    exit 1
-else
-    echo "RS_CS_LABEL: $RS_CS_LABEL"
-fi
-echo "hostname: `hostname`"
-echo
-id=`echo $RS_CS_LABEL | awk -F- '{print $2}'`
-re='^[1-9][0-9]*$'
-if [[ ! "$id" =~ $re ]]; then
-    echo "ID must a be a positive interger, exiting"
-    exit 1
-fi
+
+. /usr/bin/uperf-base || (echo "/usr/bin/uperf-base not found"; exit 1)
+
+dump_runtime
+validate_label
+validate_sw_prereqs
 
 # defaults
 control_port=""
@@ -58,12 +42,10 @@ while true; do
     esac
 done
 
-id=`echo $RS_CS_LABEL | awk -F- '{print $2}'`
-re='^[1-9][0-9]*$'
-if [[ ! "$id" =~ $re ]]; then
-    echo "ID must a be a positive interger, exiting"
-    exit 1
-fi
+# A benchmark server can provide both an IP and ports to the client.
+# The server must package these in a JSON, which will be sent to
+# the endpoint.  The endpoint may make adjustments to the IP and
+# ports depending on the network and security model.
 
 # There are always 2 ports for these uperf tests, and ports should always
 # start at 30000 to avoid port number reassignment
@@ -71,10 +53,11 @@ let "control_port = 2 * $id"
 let "control_port = $control_port + 30000"
 let "data_port = $control_port + 1"
 
-ip -j a >ip.json
-
+# If --remotehost is not used by the user, they can pass --server-ifname, a netdev name
+# like "eth0", and the server (below) will try to reolv this to the actual IP address.
+# This allows the user to not know the IP address in advance.
 ip=""
-# Find the IP of the $server_ifname
+ip -j a >ip.json
 if [ ! -z "$server_ifname" ]; then
     echo "--server-ifname=$server_ifname was found, searching for IP"
     # Find the element in the 'ip a' array that matches the ifname we are looking for

@@ -40,7 +40,7 @@ if ( -e $result_file) {
                              'value' =>  8.0 * ($bytes - $prev_bytes) / 1000000000 / $ts_diff);
                     push(@{ $metric_types{'Gbps'}{'data'} }, \%s);
                 }
-                if ($test_type eq "rr") {
+                if ($test_type eq "rr" or $test_type eq "ping-pong") {
                     $primary_metric = 'transactions-sec';
                     # RR transactions are two operations
                     my $tps = ($ops - $prev_ops) / $ts_diff / 2;

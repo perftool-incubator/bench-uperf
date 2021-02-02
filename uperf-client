@@ -2,23 +2,12 @@
 exec >uperf-client-stderrout.txt
 exec 2>&1
 
-echo "args: $@"
-echo
-if [ -z "$RS_CS_LABEL" ]; then
-    echo "RS_CS_LABEL is not defined, exiting"
-    exit 1
-else
-    echo "RS_CS_LABEL: $RS_CS_LABEL"
-    echo
-fi
-echo "hostname: `hostname`"
-echo
-echo "pwd:"
-/bin/pwd
-echo
-echo "ls -alR:"
-/bin/ls -alR
-echo
+. /usr/bin/uperf-base || (echo "/usr/bin/uperf-base not found"; exit 1)
+
+dump_runtime
+validate_label
+validate_sw_prereqs
+
 # defaults
 nthreads=1
 protocol=tcp
@@ -28,7 +17,7 @@ duration=60
 remotehost=""
 control_port=""
 data_port=""
-server_ifname="eth0"
+server_ifname="eth0" # This works for k8s pods, but we need better defaults for other endpoints
 test_type=""
 
 longopts="test-type:,protocol:,rsize:,wsize:,nthreads:,remotehost:,duration:,server-ifname:"
@@ -102,13 +91,13 @@ while true; do
     esac
 done
 
-id=`echo $RS_CS_LABEL | awk -F- '{print $2}'`
-re='^[1-9][0-9]*$'
-if [[ ! "$id" =~ $re ]]; then
-    echo "ID must a be a positive interger, exiting"
+if [ ! -e /tmp/xml-files/$test_type.xml ]; then
+    echo "[ERROR] /tmp/xml-files/$test_type.xml was not found"
     exit 1
 fi
 
+# Unless the user specifies a specific remotehost argument, this must
+# be sourced from the endpoint (which gets it from the client)
 if [ -z "$remotehost" ]; then
     echo "Remotehost was not set via cmdline args, checking any messages from the endpoint"
     echo "These files exist in ./msgs/rx:"
@@ -136,10 +125,15 @@ if [ -z "$remotehost" ]; then
     fi
 fi
 
+# Confirm we have a remotehost (server) and ports
 if [ -z "$remotehost" ]; then
     echo "remotehost is not set"
     exit 1
 fi
+
+# These ports should come from the endpoint, but if for some
+# reason they don't the default port numbers are calculated
+# in this way:
 if [ -z "$control_port" ]; then
     let "control_port = 2 * $id"
     let "control_port = $control_port + 30000"
@@ -149,27 +143,11 @@ if [ -z "$data_port" ]; then
     let "data_port = $control_port + 1"
     echo "data_port was not set, using default of $data_port"
 fi
-
-
-test_xml="/tmp/xml-files/$test_type.xml"
-if [ ! -e $test_xml ]; then
-    echo "$test_xml not found"
-    exit 1
-fi
-
-
-echo "test-xml-files:"
-/bin/ls /tmp/xml-files
-echo
-
-echo "ip a:"
-ip a
-echo
-
 /bin/cp /tmp/xml-files/$test_type.xml test.xml
 echo "remotehost=$remotehost"
 echo "control_port=$control_port"
 echo "data_port=$data_port"
+
 nthreads=$nthreads \
 protocol=$protocol \
 remotehost=$remotehost \
