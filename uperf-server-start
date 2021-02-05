@@ -16,8 +16,7 @@ server_ifname=""
 longopts="test-type:,protocol:,rsize:,wsize:,nthreads:,remotehost:,duration:,server-ifname:"
 opts=$(getopt -q -o "" --longoptions "$longopts" -n "getopt.sh" -- "$@");
 if [ $? -ne 0 ]; then
-    printf -- "\tUnrecognized option specified\n\n"
-    exit 1
+    exit_error  "Unrecognized option specified"
 fi
 eval set -- "$opts";
 while true; do
@@ -28,6 +27,12 @@ while true; do
             echo "server_ifname=$server_ifname"
             shift
             ;;
+        --remotehost)
+            shift;
+            remote_host="$1"
+            echo "remote_host=$remote_host"
+            shift;
+            ;;
         --test-type|--nthreads|--protocol|--rsize|--wsize|--remotehost|--duration)
             shift;
             shift;
@@ -37,8 +42,7 @@ while true; do
             break
             ;;
         *)
-            echo "Invalid option: $1"
-            exit 1
+            exit_error "Invalid option: $1"
     esac
 done
 
@@ -72,20 +76,22 @@ if [ ! -z "$server_ifname" ]; then
             jq -r '.['$ifname_idx'].addr_info['$addr_idx']' ip.json
             ip=`jq -r '.['$ifname_idx'].addr_info['$addr_idx'].local' ip.json`
         else
-            echo "WARNING: an ipv4 address could not be found for $server_ifname in addr_info:"
-            jq '.['$ifname_idx'].addr_info' ip.json
+            addr_info=`jq '.['$ifname_idx'].addr_info' ip.json`
+            exit_error "An IPV4 address could not be found for $server_ifname in addr_info: $addr_info"
         fi
     else
-        echo "WARNING: ifname_idx was not defined when searching for $ifname"
+        interfaces=`jq -r '. | to_entries | .[] | .value.ifname' ip.json`
+        exit_error "could not find netdev $server_ifname, interfaces are: $interfaces"
     fi
     if [ -z "$ip" ]; then
-        echo "WARNING: IP was not found from $server_ifname"
+        exit_error "IP was not found from $server_ifname"
     else
         echo "IP was found: $ip"
     fi
 else
     echo "Not going to look for an IP since --server-ifname was not used."
-    echo "Either uperf's bench-params need to include --remotehost, or the endpoint must derive the uperf server's IP"
+    if [ -z $remote_host ]; then
+    exit_error "Neither --server_ifname nor --remotehost was used, so refusing to start server"
 fi
 
 # Queue ip/port info, to be sent to endpoint
@@ -109,6 +115,7 @@ fi
 echo "Existing listening ports (after kill):"
 ss -tlnp
 echo
+#TODO: exit with error if ports still used
 
 cmd="uperf -s -P $control_port"
 echo "going to run: $cmd"
@@ -119,9 +126,7 @@ echo $pid >uperf-server.pid
 # Wait a little bit to see if the server errored out
 sleep 10
 if grep -q -i error uperf-server-start.txt; then
-    echo "Server failed to start:"
-    cat uperf-server-start.txt
-    exit 1
+    exit_error "Server failed to start: `grep -i error uperf-server-start.txt`"
 fi
 echo ps:
 ps aux | grep uperf

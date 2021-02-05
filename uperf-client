@@ -23,8 +23,7 @@ test_type=""
 longopts="test-type:,protocol:,rsize:,wsize:,nthreads:,remotehost:,duration:,server-ifname:"
 opts=$(getopt -q -o "" --longoptions "$longopts" -n "getopt.sh" -- "$@");
 if [ $? -ne 0 ]; then
-    printf -- "\tUnrecognized option specified\n\n"
-    exit 1
+    exit_error "Unrecognized option specified"
 fi
 eval set -- "$opts";
 while true; do
@@ -34,8 +33,7 @@ while true; do
             test_type=$1
             echo "test_type=$test_type"
             if [ ! -e /tmp/xml-files/$test_type.xml ]; then
-                echo "ERROR: could not find /tmp/xml-files/$test_type.xml"
-                exit 1
+                exit_error "could not find /tmp/xml-files/$test_type.xml"
             fi
             shift;
             ;;
@@ -86,14 +84,12 @@ while true; do
             break
             ;;
         *)
-            echo "Invalid option: $1"
-            exit 1
+            exit_error "Invalid option: $1"
     esac
 done
 
 if [ ! -e /tmp/xml-files/$test_type.xml ]; then
-    echo "[ERROR] /tmp/xml-files/$test_type.xml was not found"
-    exit 1
+    exit_error "/tmp/xml-files/$test_type.xml was not found"
 fi
 
 # Unless the user specifies a specific remotehost argument, this must
@@ -127,9 +123,9 @@ fi
 
 # Confirm we have a remotehost (server) and ports
 if [ -z "$remotehost" ]; then
-    echo "remotehost is not set"
-    exit 1
+    exit_error "remotehost is not set"
 fi
+# TODO: validate $remotehost with regex
 
 # These ports should come from the endpoint, but if for some
 # reason they don't the default port numbers are calculated
@@ -155,4 +151,9 @@ duration=$duration \
 wsize=$wsize \
 rsize=$rsize \
 port=$data_port \
-uperf -R -m test.xml -P $control_port
+uperf -R -m test.xml -P $control_port 2>&1 >uperf-client-result.txt
+uperf_rc=$?
+if [ $uperf_rc -gt 0 ]; then
+    uperf_errors=`grep -i error uperf-client-result.txt`
+    exit_error "$uperf_errors"
+fi

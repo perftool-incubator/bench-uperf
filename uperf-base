@@ -1,5 +1,16 @@
 #!/bin/bash
 
+function exit_error() {
+    local msg="$1"; shift
+    local code="$1"; shift
+    if [ -z "$code" ]; then
+        code=1
+    fi
+    echo '{"recipient":{"type":"all","id":"all"},"user-object":{"error": "'$msg'"}}' >msgs/tx/error
+    echo "$msg"
+    exit $code
+}
+
 function dump_runtime() {
     echo env:
     env
@@ -47,8 +58,7 @@ function validate_label() {
     id=`echo $RS_CS_LABEL | awk -F- '{print $2}'`
     re='^[1-9][0-9]*$'
     if [[ ! "$id" =~ $re ]]; then
-        echo "ID must a be a positive interger, exiting"
-        exit 1
+        exit_error "ID from label $RS_CS_LABEL must a be a positive interger"
     fi
 }
 
@@ -60,7 +70,6 @@ function validate_sw_prereqs() {
         $bin -h 2>&1 >/dev/null || (bail=1 && missing+=" $bin")
     done
     if [ "$bail" == "1" ]; then
-        echo "ERROR: could not find utility: $missing"
-        exit 1
+        exit_error "Could not find utility: $missing"
     fi
 }

@@ -27,7 +27,7 @@ GetOptions ("test-type=s" => \$test_type,
 my @metrics;
 my %metric_types;
 my $primary_metric = 'Gbps';
-my $result_file = "uperf-client-stderrout.txt";
+my $result_file = "uperf-client-result.txt";
 if ( -e $result_file) {
     open(FH, $result_file) || die "Could not open file " . $result_file;
     my $ts, my $prev_ts, my $bytes, my $prev_bytes, my $ops, my $prev_ops;;
