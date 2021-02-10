@@ -91,7 +91,8 @@ if [ ! -z "$server_ifname" ]; then
 else
     echo "Not going to look for an IP since --server-ifname was not used."
     if [ -z $remote_host ]; then
-    exit_error "Neither --server_ifname nor --remotehost was used, so refusing to start server"
+        exit_error "Neither --server-ifname nor --remotehost was used, so refusing to start server"
+    fi
 fi
 
 # Queue ip/port info, to be sent to endpoint

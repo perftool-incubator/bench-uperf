@@ -66,10 +66,23 @@ function validate_label() {
 function validate_sw_prereqs() {
     local missing=""
     local bail=0
-    for bin in getopt ip ss jq ss uperf; do
-        $bin -h 2>&1 >/dev/null || (bail=1 && missing+=" $bin")
+    echo "Checking for SW deps"
+    for bin in getopt jq ss uperf; do
+        if $bin -h >/dev/null 2>&1; then
+            echo "Found $bin"
+        else
+            bail=1
+            missing+=" $bin"
+        fi
     done
-    if [ "$bail" == "1" ]; then
+    # ip does not like -h
+    if ip a >/dev/null 2>&1; then
+        echo "Found $bin"
+    else
+        bail=1
+        missing+=" $bin"
+    fi
+    if [ $bail -eq 1 ]; then
         exit_error "Could not find utility: $missing"
     fi
 }
