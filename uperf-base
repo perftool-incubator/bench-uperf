@@ -52,6 +52,8 @@ function dump_runtime() {
             cat $path/$i
         done
     done
+    echo "cpumask"
+    taskset -pc $$
 }
 
 function validate_label() {
@@ -67,7 +69,7 @@ function validate_sw_prereqs() {
     local missing=""
     local bail=0
     echo "Checking for SW deps"
-    for bin in getopt jq ss uperf; do
+    for bin in jq ss uperf; do
         if $bin -h >/dev/null 2>&1; then
             echo "Found $bin"
         else
@@ -75,8 +77,17 @@ function validate_sw_prereqs() {
             missing+=" $bin"
         fi
     done
+    # some getopt does not like -h
+    bin="getopt"
+    if $bin -V >/dev/null 2>&1; then
+        echo "Found $bin"
+    else
+        bail=1
+        missing+=" $bin"
+    fi
     # ip does not like -h
-    if ip a >/dev/null 2>&1; then
+    bin="ip"
+    if $bin a >/dev/null 2>&1; then
         echo "Found $bin"
     else
         bail=1
