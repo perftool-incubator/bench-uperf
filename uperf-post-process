@@ -64,14 +64,13 @@ if ( -e $result_file) {
     # metrics array
     for my $type (keys %metric_types) {
         if (scalar @{ $metric_types{$type}{'data'} } > 0) {
-            my %desc = ('source' => 'uperf', 'type' => $type, 'name-format' => '');
+            my %desc = ('source' => 'uperf', 'type' => $type);
             if ($type eq "round-trip-usec") {
                 $desc{'class'} = 'count';
             } else {
                 $desc{'class'} = 'throughput';
             }
             if ($type eq "Gbps") {
-                $desc{'name-format'} = "%cmd%";
                 my %names = ('cmd' => 'readandwrite');
                 $metric_types{$type}{'names'} = \%names;
             }
@@ -84,7 +83,7 @@ if ( -e $result_file) {
 my %sample;
 my @periods;
 my %period = ('name' => 'measurement');
-$sample{'rickshaw-bench-metric'}{'schema'}{'version'} = "2020.03.18";
+$sample{'rickshaw-bench-metric'}{'schema'}{'version'} = "2021.03.02";
 $period{'metrics'} = \@metrics;
 push(@periods, \%period);
 $sample{'periods'} = \@periods;
