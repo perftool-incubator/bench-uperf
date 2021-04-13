@@ -7,6 +7,17 @@ use warnings;
 use JSON::XS;
 use Data::Dumper;
 use Getopt::Long;
+BEGIN {
+    if (!(exists $ENV{'TOOLBOX_HOME'} && -d "$ENV{'TOOLBOX_HOME'}/perl")) {
+    print "This script requires libraries that are provided by the toolbox project.\n";
+    print "Toolbox can be acquired from https://github.com/perftool-incubator/toolbox and\n";
+    print "then use 'export TOOLBOX_HOME=/path/to/toolbox' so that it can be located.\n";
+    exit 1;
+    }
+}
+use lib "$ENV{'TOOLBOX_HOME'}/perl";
+use toolbox::json;
+use toolbox::metrics;
 
 my $test_type;
 my $nthreads = 1;
@@ -24,33 +35,41 @@ GetOptions ("test-type=s" => \$test_type,
             "server-ifname=s" => \$ignore
             );
 
-my @metrics;
-my %metric_types;
-my $primary_metric = 'Gbps';
+my $primary_metric;
+if ($test_type eq "rr" or $test_type eq "ping-pong") {
+    $primary_metric = 'transactions-sec';
+} else {
+    $primary_metric = 'Gbps';
+}
 my $result_file = "uperf-client-result.txt";
 if ( -e $result_file) {
+    my %desc = ('source' => 'uperf', 'class' => 'throughput');
     open(FH, $result_file) || die "Could not open file " . $result_file;
     my $ts, my $prev_ts, my $bytes, my $prev_bytes, my $ops, my $prev_ops;;
+    my %names = ();
     while (<FH>) {
         if ( /^timestamp_ms:(\d+)\.\d+\s+name:Txn2\s+nr_bytes:(\d+)\s+nr_ops:(\d+)/ ) {
             $ts = $1, $bytes = $2, $ops = $3;
             if (defined $prev_ts and ((my $ts_diff = ($ts - $prev_ts) / 1000) > 0)) {
                 {
+                    my %desc = ('source' => 'uperf', 'class' => 'throughput', 'type' => 'Gbps');
+                    my %names = ('cmd' => 'readandwrite');
                     my %s = ('end' => int $ts,
                              'value' =>  8.0 * ($bytes - $prev_bytes) / 1000000000 / $ts_diff);
-                    push(@{ $metric_types{'Gbps'}{'data'} }, \%s);
+                    log_sample("0", \%desc, \%names, \%s);
                 }
                 if ($test_type eq "rr" or $test_type eq "ping-pong") {
-                    $primary_metric = 'transactions-sec';
                     # RR transactions are two operations
                     my $tps = ($ops - $prev_ops) / $ts_diff / 2;
                     {
+                        my %desc = ('source' => 'uperf', 'class' => 'throughput', 'type' => 'transactions-sec');
                         my %s = ('end' => int $ts, 'value' => 0.0 + $tps);
-                        push(@{ $metric_types{'transactions-sec'}{'data'} }, \%s);
+                        log_sample("0", \%desc, \%names, \%s);
                     }
                     if ($tps > 0) {
+                        my %desc = ('source' => 'uperf', 'class' => 'count', 'type' => 'round-trip-usec');
                         my %s = ('end' => int $ts, 'value' => 0.0 + $nthreads / $tps *1000000);
-                        push(@{ $metric_types{'round-trip-usec'}{'data'} }, \%s);
+                        log_sample("0", \%desc, \%names, \%s);
                     }
                 }
             }
@@ -60,39 +79,21 @@ if ( -e $result_file) {
         }
     }
     close(FH);
-    # Assign meta-data to any metric data we found and push the data & metadata to the
-    # metrics array
-    for my $type (keys %metric_types) {
-        if (scalar @{ $metric_types{$type}{'data'} } > 0) {
-            my %desc = ('source' => 'uperf', 'type' => $type);
-            if ($type eq "round-trip-usec") {
-                $desc{'class'} = 'count';
-            } else {
-                $desc{'class'} = 'throughput';
-            }
-            if ($type eq "Gbps") {
-                my %names = ('cmd' => 'readandwrite');
-                $metric_types{$type}{'names'} = \%names;
-            }
-            $metric_types{$type}{'desc'} = \%desc;
-            push(@metrics, \%{ $metric_types{$type}});
-        }
-    }
 }
+my $metric_data_name = finish_samples(); 
 # Associate the metrics with a benchmark-period (in this case "measurement")
 my %sample;
 my @periods;
 my %period = ('name' => 'measurement');
-$sample{'rickshaw-bench-metric'}{'schema'}{'version'} = "2021.03.02";
-$period{'metrics'} = \@metrics;
+$sample{'rickshaw-bench-metric'}{'schema'}{'version'} = "2021.04.12";
+my @metric_files = ( $metric_data_name );
+$period{'metric-files'} = \@metric_files;
 push(@periods, \%period);
 $sample{'periods'} = \@periods;
 $sample{'primary-period'} = 'measurement';
 $sample{'primary-metric'} = $primary_metric;
-if (scalar @metrics > 0) {
-    my $coder = JSON::XS->new;
-    open(JSON_FH, ">post-process-data.json") ||
-        die("Could not open file post-process-data.json for writing\n");
-    print JSON_FH $coder->encode(\%sample);
-    close JSON_FH;
-}
+my $coder = JSON::XS->new;
+open(JSON_FH, ">post-process-data.json") ||
+    die("Could not open file post-process-data.json for writing\n");
+print JSON_FH $coder->encode(\%sample);
+close JSON_FH;
