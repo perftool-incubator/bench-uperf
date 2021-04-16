@@ -79,21 +79,21 @@ if ( -e $result_file) {
         }
     }
     close(FH);
+    my $metric_data_name = finish_samples();
+    # Associate the metrics with a benchmark-period (in this case "measurement")
+    my %sample;
+    my @periods;
+    my %period = ('name' => 'measurement');
+    $sample{'rickshaw-bench-metric'}{'schema'}{'version'} = "2021.04.12";
+    my @metric_files = ( $metric_data_name );
+    $period{'metric-files'} = \@metric_files;
+    push(@periods, \%period);
+    $sample{'periods'} = \@periods;
+    $sample{'primary-period'} = 'measurement';
+    $sample{'primary-metric'} = $primary_metric;
+    my $coder = JSON::XS->new;
+    open(JSON_FH, ">post-process-data.json") ||
+        die("Could not open file post-process-data.json for writing\n");
+    print JSON_FH $coder->encode(\%sample);
+    close JSON_FH;
 }
-my $metric_data_name = finish_samples(); 
-# Associate the metrics with a benchmark-period (in this case "measurement")
-my %sample;
-my @periods;
-my %period = ('name' => 'measurement');
-$sample{'rickshaw-bench-metric'}{'schema'}{'version'} = "2021.04.12";
-my @metric_files = ( $metric_data_name );
-$period{'metric-files'} = \@metric_files;
-push(@periods, \%period);
-$sample{'periods'} = \@periods;
-$sample{'primary-period'} = 'measurement';
-$sample{'primary-metric'} = $primary_metric;
-my $coder = JSON::XS->new;
-open(JSON_FH, ">post-process-data.json") ||
-    die("Could not open file post-process-data.json for writing\n");
-print JSON_FH $coder->encode(\%sample);
-close JSON_FH;
