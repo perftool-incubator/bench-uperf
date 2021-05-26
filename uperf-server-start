@@ -11,9 +11,9 @@ validate_sw_prereqs
 # defaults
 control_port=""
 data_port=""
-server_ifname=""
+ifname=""
 
-longopts="test-type:,protocol:,rsize:,wsize:,nthreads:,remotehost:,duration:,server-ifname:"
+longopts="ifname:"
 opts=$(getopt -q -o "" --longoptions "$longopts" -n "getopt.sh" -- "$@");
 if [ $? -ne 0 ]; then
     exit_error  "Unrecognized option specified"
@@ -21,17 +21,11 @@ fi
 eval set -- "$opts";
 while true; do
     case "$1" in
-        --server-ifname)
+        --ifname)
             shift;
-            server_ifname="$1"
-            echo "server_ifname=$server_ifname"
+            ifname="$1"
+            echo "ifname=$ifname"
             shift
-            ;;
-        --remotehost)
-            shift;
-            remote_host="$1"
-            echo "remote_host=$remote_host"
-            shift;
             ;;
         --test-type|--nthreads|--protocol|--rsize|--wsize|--remotehost|--duration)
             shift;
@@ -62,12 +56,12 @@ let "data_port = $control_port + 1"
 # This allows the user to not know the IP address in advance.
 ip=""
 ip -j a >ip.json
-if [ ! -z "$server_ifname" ]; then
-    echo "--server-ifname=$server_ifname was found, searching for IP"
+if [ ! -z "$ifname" ]; then
+    echo "--ifname=$ifname was found, searching for IP"
     # Find the element in the 'ip a' array that matches the ifname we are looking for
-    ifname_idx=`jq 'to_entries | .[] | if (.value.ifname == "'$server_ifname'") then .key else null end' ip.json | grep -v null`
+    ifname_idx=`jq 'to_entries | .[] | if (.value.ifname == "'$ifname'") then .key else null end' ip.json | grep -v null`
     if [ ! -z "$ifname_idx" ]; then
-        echo "$server_ifname matches index $ifname_idx, looking for ipv4 (inet) in addr_info:"
+        echo "$ifname matches index $ifname_idx, looking for ipv4 (inet) in addr_info:"
         jq '.['$ifname_idx'].addr_info' ip.json
         # Find the first ipv4 address
         addr_idx=`jq '.['$ifname_idx'].addr_info | to_entries | .[] | if (.value.family == "inet") then .key else null end' ip.json | grep -v null | head -1`
@@ -77,22 +71,19 @@ if [ ! -z "$server_ifname" ]; then
             ip=`jq -r '.['$ifname_idx'].addr_info['$addr_idx'].local' ip.json`
         else
             addr_info=`jq '.['$ifname_idx'].addr_info' ip.json`
-            exit_error "An IPV4 address could not be found for $server_ifname in addr_info: $addr_info"
+            exit_error "An IPV4 address could not be found for $ifname in addr_info: $addr_info"
         fi
     else
         interfaces=`jq -r '. | to_entries | .[] | .value.ifname' ip.json`
-        exit_error "could not find netdev $server_ifname, interfaces are: $interfaces"
+        exit_error "could not find netdev $ifname, interfaces are: $interfaces"
     fi
     if [ -z "$ip" ]; then
-        exit_error "IP was not found from $server_ifname"
+        exit_error "IP was not found from $ifname"
     else
         echo "IP was found: $ip"
     fi
 else
     echo "Not going to look for an IP since --server-ifname was not used."
-    if [ -z $remote_host ]; then
-        exit_error "Neither --server-ifname nor --remotehost was used, so refusing to start server"
-    fi
 fi
 
 # Queue ip/port info, to be sent to endpoint

@@ -10,17 +10,16 @@ validate_sw_prereqs
 
 # defaults
 nthreads=1
-protocol=tcp
+protocol="tcp"
 wsize=1024
 rsize=1024
 duration=60
 remotehost=""
 control_port=""
 data_port=""
-server_ifname="eth0" # This works for k8s pods, but we need better defaults for other endpoints
-test_type=""
+test_type="stream"
 
-longopts="test-type:,protocol:,rsize:,wsize:,nthreads:,remotehost:,duration:,server-ifname:"
+longopts="test-type:,protocol:,rsize:,wsize:,nthreads:,remotehost:,duration:"
 opts=$(getopt -q -o "" --longoptions "$longopts" -n "getopt.sh" -- "$@");
 if [ $? -ne 0 ]; then
     exit_error "Unrecognized option specified"
@@ -67,12 +66,6 @@ while true; do
             echo "remotehost=$remotehost"
             shift
             ;;
-        --server-ifname)
-            shift;
-            server_ifname=$1
-            echo "server_ifname=$server_ifname"
-            shift
-            ;;
         --duration)
             shift;
             duration=$1
@@ -95,7 +88,7 @@ fi
 # Unless the user specifies a specific remotehost argument, this must
 # be sourced from the endpoint (which gets it from the client)
 if [ -z "$remotehost" ]; then
-    echo "Remotehost was not set via cmdline args, checking any messages from the endpoint"
+    echo "--remotehost was not set via cmdline args, checking any messages from the endpoint"
     echo "These files exist in ./msgs/rx:"
     /bin/ls -l msgs/rx
     file="msgs/rx/client-start:1"
@@ -143,6 +136,11 @@ fi
 echo "remotehost=$remotehost"
 echo "control_port=$control_port"
 echo "data_port=$data_port"
+echo "duration=$duration"
+echo "wsize=$wsize"
+echo "rsize=$rsize"
+echo "nthreads=$nthreads"
+echo "nthreads=$nthreads"
 
 nthreads=$nthreads \
 protocol=$protocol \
