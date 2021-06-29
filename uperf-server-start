@@ -51,12 +51,19 @@ let "control_port = 2 * $id"
 let "control_port = $control_port + 30000"
 let "data_port = $control_port + 1"
 
-# If --remotehost is not used by the user, they can pass --server-ifname, a netdev name
-# like "eth0", and the server (below) will try to reolv this to the actual IP address.
+# If --remotehost is not used by the user, they can pass --ifname, a netdev name
+# like "eth0", and the server (below) will try to resolve this to the actual IP address.
 # This allows the user to not know the IP address in advance.
 ip=""
 ip -j a >ip.json
 if [ ! -z "$ifname" ]; then
+    if echo $ifname | grep -q '%id:'; then
+        # We have the role ID variable embedded, so we need to extract the value
+        before_var=`echo $ifname | sed -e 's/\(.*\)%id:.*%/\1/'`
+        after_var=`echo $ifname | sed -e 's/.*%id:.*%\(.*\)/\1/'`
+        var=`echo $ifname | sed -e 's/%id:\(.*\)%/\1/' | jq -r '."'$id'"'`
+        ifname="${before_var}${var}${after_var}"
+    fi
     echo "--ifname=$ifname was found, searching for IP"
     # Find the element in the 'ip a' array that matches the ifname we are looking for
     ifname_idx=`jq 'to_entries | .[] | if (.value.ifname == "'$ifname'") then .key else null end' ip.json | grep -v null`
