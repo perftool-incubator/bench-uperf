@@ -32,8 +32,13 @@ GetOptions ("test-type=s" => \$test_type,
             "rsize=i" => \$ignore,
             "protocol=s" => \$ignore,
             "duration=i" => \$ignore,
-            "server-ifname=s" => \$ignore
+            "ifname=s" => \$ignore
             );
+
+if (! defined $test_type) {
+    print "uperf-post-process(): test-type not defined, exiting\n";
+    exit 1;
+}
 
 my $primary_metric;
 if ($test_type eq "rr" or $test_type eq "ping-pong") {
@@ -42,12 +47,12 @@ if ($test_type eq "rr" or $test_type eq "ping-pong") {
     $primary_metric = 'Gbps';
 }
 my $result_file = "uperf-client-result.txt";
-if ( -e $result_file) {
-    my %desc = ('source' => 'uperf', 'class' => 'throughput');
-    open(FH, $result_file) || die "Could not open file " . $result_file;
+my %desc = ('source' => 'uperf', 'class' => 'throughput');
+(my $rc, my $fh) = open_read_text_file($result_file);
+if ($rc == 0 and defined $fh) {
     my $ts, my $prev_ts, my $bytes, my $prev_bytes, my $ops, my $prev_ops;;
     my %names = ();
-    while (<FH>) {
+    while (<$fh>) {
         if ( /^timestamp_ms:(\d+)\.\d+\s+name:Txn2\s+nr_bytes:(\d+)\s+nr_ops:(\d+)/ ) {
             $ts = $1, $bytes = $2, $ops = $3;
             if (defined $prev_ts and ((my $ts_diff = ($ts - $prev_ts) / 1000) > 0)) {
@@ -55,7 +60,7 @@ if ( -e $result_file) {
                     my %desc = ('source' => 'uperf', 'class' => 'throughput', 'type' => 'Gbps');
                     my %names = ('cmd' => 'readandwrite');
                     my %s = ('end' => int $ts,
-                             'value' =>  8.0 * ($bytes - $prev_bytes) / 1000000000 / $ts_diff);
+                            'value' =>  8.0 * ($bytes - $prev_bytes) / 1000000000 / $ts_diff);
                     log_sample("0", \%desc, \%names, \%s);
                 }
                 if ($test_type eq "rr" or $test_type eq "ping-pong") {
@@ -78,7 +83,7 @@ if ( -e $result_file) {
             $prev_ops = $ops;
         }
     }
-    close(FH);
+    close($fh);
     my $metric_data_name = finish_samples();
     # Associate the metrics with a benchmark-period (in this case "measurement")
     my %sample;
@@ -91,9 +96,8 @@ if ( -e $result_file) {
     $sample{'periods'} = \@periods;
     $sample{'primary-period'} = 'measurement';
     $sample{'primary-metric'} = $primary_metric;
-    my $coder = JSON::XS->new;
-    open(JSON_FH, ">post-process-data.json") ||
-        die("Could not open file post-process-data.json for writing\n");
-    print JSON_FH $coder->encode(\%sample);
-    close JSON_FH;
+    put_json_file("post-process-data.json", \%sample)
+} else {
+    printf "uperf-post-process(): open_read_text_file() failed with return code %d for file %s\n", $rc, $result_file;
+    printf "Is the current directory for a uperf server (no result file)?\n";
 }
