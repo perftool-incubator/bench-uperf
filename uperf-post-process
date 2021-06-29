@@ -96,7 +96,11 @@ if ($rc == 0 and defined $fh) {
     $sample{'periods'} = \@periods;
     $sample{'primary-period'} = 'measurement';
     $sample{'primary-metric'} = $primary_metric;
-    put_json_file("post-process-data.json", \%sample)
+    $rc = put_json_file("post-process-data.json", \%sample)
+    if ($rc > 0) {
+        printf "uperf-post-process(): Could not write file post-process-data.json\n";
+        exit 1
+    }
 } else {
     printf "uperf-post-process(): open_read_text_file() failed with return code %d for file %s\n", $rc, $result_file;
     printf "Is the current directory for a uperf server (no result file)?\n";
