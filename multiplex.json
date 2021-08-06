@@ -1,34 +1,33 @@
 {
-    "defaults": {
-        "basic" : {
-            "test-type": ["stream"],
-	        "wsize": ["16384"],
-            "duration": ["60"],
-            "protocol": ["tcp"],
-            "nthreads": ["1"]
-        },
-        "mandatory" : {}
+    "presets": {
+        "basic" : [
+	    { "arg": "test-type", "vals": ["stream"] },
+	    { "arg": "wsize", "vals": ["16384"] },
+	    { "arg": "duration", "vals": ["60"] },
+	    { "arg": "protocol", "vals": ["tcp"] },
+	    { "arg": "nthreads", "vals": ["1"] }
+        ]
     },
-    "requirements": {
-        "test-types" : {
-            "description" : "all possible test-types",
-            "arguments" : [ "test-type" ],
-            "value_regex" : "^stream$|^maerts$|^rr$"
+    "validations": {
+        "test-types": {
+            "description": "all possible test-types",
+            "argss": [ "test-type" ],
+            "vals": "^stream$|^crr$|^rr$|^ping-pong$"
         },
-        "protocols" : {
-            "description" : "all possible protocols",
-            "arguments" : [ "protocol" ],
-            "value_regex" : "^tcp$|^udp$"
+        "protocols": {
+            "description": "all possible protocols",
+            "args": [ "protocol" ],
+            "vals": "^tcp$|^udp$"
         },
-        "positive_integer" : {
-            "description" : "a whole number greater than 0",
-            "arguments" : [ "wsize", "rsize", "nthreads", "duration" ],
-            "value_regex" : "[0-9]+"
+        "positive_integer": {
+            "description": "a whole number greater than 0",
+            "args": [ "wsize", "rsize", "nthreads", "duration" ],
+            "vals": "[1-9][0-9]*"
         },
-        "host-or-ip" : {
+        "host-or-ip": {
             "description" : "a hostname or IP address",
-            "arguments" : [ "remotehost" ],
-            "value_regex" : ".+"
+            "args": [ "remotehost" ],
+            "vals": ".+"
         }
     }
 }
