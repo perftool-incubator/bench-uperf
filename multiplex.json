@@ -11,7 +11,7 @@
     "validations": {
         "test-types": {
             "description": "all possible test-types",
-            "argss": [ "test-type" ],
+            "args": [ "test-type" ],
             "vals": "^stream$|^crr$|^rr$|^ping-pong$"
         },
         "protocols": {
