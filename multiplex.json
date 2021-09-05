@@ -28,6 +28,11 @@
             "description" : "a hostname or IP address",
             "args": [ "remotehost" ],
             "vals": ".+"
-        }
+        },
+	"non-empty-string": {
+	    "description": "any non-empty string",
+	    "args": [ "ifname" ],
+	    "vals": "^.+$"
+	}
     }
 }
