@@ -13,25 +13,24 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
+    - name: Checkout bench-uperf
+      uses: actions/checkout@v2
+      with:
+        path: bench-uperf
 
-    - name: Show Environment
-      run: |
-        whoami
-        echo
-        pwd
-        echo
-        ls -la
+    - name: Checkout crucible-ci
+      uses: actions/checkout@v2
+      with:
+        repository: perftool-incubator/crucible-ci
+        ref: main
+        path: crucible-ci
 
-    - name: Git Clone crucible-ci
-      run: |
-        pushd ~/
-        git clone https://github.com/perftool-incubator/crucible-ci.git
-
-    - name: Setup CI Environment
-      run: |
-        sudo ~/crucible-ci/setup-ci-environment --ci-target uperf --ci-target-dir $(pwd)
-
-    - name: Run CI
-      run: |
-        sudo ~/crucible-ci/run-ci --scenarios uperf
+    - name: Run crucible-ci->integration-tests
+      uses: ./crucible-ci/.github/actions/integration-tests
+      with:
+        artifact_tag: "uperf"
+        ci_target: "uperf"
+        ci_target_dir: ${{ github.workspace }}/bench-uperf
+        scenarios: "uperf"
+        repeat_runs: "no"
+        run_samples: "1"
