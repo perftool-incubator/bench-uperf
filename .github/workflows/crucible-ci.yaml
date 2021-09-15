@@ -34,3 +34,4 @@ jobs:
         scenarios: "uperf"
         repeat_runs: "no"
         run_samples: "1"
+        userenvs: "all"
