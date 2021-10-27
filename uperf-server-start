@@ -6,7 +6,7 @@ exec 2>&1
 
 dump_runtime
 validate_label
-validate_sw_prereqs
+validate_sw_prereqs jq ss uperf getopt ip
 
 # defaults
 control_port=""
