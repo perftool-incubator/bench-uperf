@@ -23,7 +23,7 @@
 		            "unpack": "tar -xzf 1.0.7.tar.gz",
 		            "get_dir": "tar -tzf 1.0.7.tar.gz | head -n 1",
 		            "commands": [
-			            "CFLAGS=\"-ggdb\" ./configure --disable-sctp --enable-debug",
+			            "CFLAGS=\"-ggdb\" ./configure --disable-sctp",
 			            "make",
 			            "make install",
 			            "ldconfig",

@@ -18,6 +18,7 @@ remotehost=""
 control_port=""
 data_port=""
 test_type="stream"
+uopts=""
 
 longopts="test-type:,protocol:,rsize:,wsize:,nthreads:,remotehost:,duration:"
 opts=$(getopt -q -o "" --longoptions "$longopts" -n "getopt.sh" -- "$@");
@@ -132,6 +133,10 @@ if [ -z "$data_port" ]; then
     let "data_port = $control_port + 1"
     echo "data_port was not set, using default of $data_port"
 fi
+if [[ "$test_type" = "crr" ]]; then
+    # show more details of connect/disconnect
+    uopts="-tTfa"
+fi
 /bin/cp /tmp/xml-files/$test_type.xml test.xml
 echo "remotehost=$remotehost"
 echo "control_port=$control_port"
@@ -149,7 +154,7 @@ duration=$duration \
 wsize=$wsize \
 rsize=$rsize \
 port=$data_port \
-uperf -R -m test.xml -P $control_port 2>&1 >uperf-client-result.txt
+uperf -R -m test.xml -P $control_port $uopts 2>&1 >uperf-client-result.txt
 uperf_rc=$?
 if [ $uperf_rc -gt 0 ]; then
     uperf_errors=`grep -i error uperf-client-result.txt`

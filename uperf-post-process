@@ -41,7 +41,7 @@ if (! defined $test_type) {
 }
 
 my $primary_metric;
-if ($test_type eq "rr" or $test_type eq "ping-pong") {
+if ($test_type eq "rr" or $test_type eq "ping-pong" or $test_type eq "crr") {
     $primary_metric = 'transactions-sec';
 } else {
     $primary_metric = 'Gbps';
@@ -53,19 +53,19 @@ if ($rc == 0 and defined $fh) {
     my $ts, my $prev_ts, my $bytes, my $prev_bytes, my $ops, my $prev_ops;;
     my %names = ();
     while (<$fh>) {
-        if ( /^timestamp_ms:(\d+)\.\d+\s+name:Txn2\s+nr_bytes:(\d+)\s+nr_ops:(\d+)/ ) {
-            $ts = $1, $bytes = $2, $ops = $3;
-            if (defined $prev_ts and ((my $ts_diff = ($ts - $prev_ts) / 1000) > 0)) {
-                {
-                    my %desc = ('source' => 'uperf', 'class' => 'throughput', 'type' => 'Gbps');
-                    my %names = ('cmd' => 'readandwrite');
-                    my %s = ('end' => int $ts,
-                            'value' =>  8.0 * ($bytes - $prev_bytes) / 1000000000 / $ts_diff);
-                    log_sample("0", \%desc, \%names, \%s);
-                }
-                if ($test_type eq "rr" or $test_type eq "ping-pong") {
-                    # RR transactions are two operations
-                    my $tps = ($ops - $prev_ops) / $ts_diff / 2;
+        if ( $test_type eq "crr") {
+            if ( /^timestamp_ms:(\d+)\.\d+\s+name:Txn1\s+nr_bytes:(\d+)\s+nr_ops:(\d+)/ ) {
+                $ts = $1, $bytes = $2, $ops = $3;
+                if (defined $prev_ts and ((my $ts_diff = ($ts - $prev_ts) / 1000) > 0)) {
+                    {
+                        my %desc = ('source' => 'uperf', 'class' => 'throughput', 'type' => 'Gbps');
+                        my %names = ('cmd' => 'readandwrite');
+                        my %s = ('end' => int $ts,
+                                'value' =>  8.0 * ($bytes - $prev_bytes) / 1000000000 / $ts_diff);
+                        log_sample("0", \%desc, \%names, \%s);
+                    }
+                    # CPS transactions are four operations
+                    my $tps = ($ops - $prev_ops) / $ts_diff / 4;
                     {
                         my %desc = ('source' => 'uperf', 'class' => 'throughput', 'type' => 'transactions-sec');
                         my %s = ('end' => int $ts, 'value' => 0.0 + $tps);
@@ -77,10 +77,40 @@ if ($rc == 0 and defined $fh) {
                         log_sample("0", \%desc, \%names, \%s);
                     }
                 }
+                $prev_ts = $ts;
+                $prev_bytes = $bytes;
+                $prev_ops = $ops;
             }
-            $prev_ts = $ts;
-            $prev_bytes = $bytes;
-            $prev_ops = $ops;
+        } else {
+            if ( /^timestamp_ms:(\d+)\.\d+\s+name:Txn2\s+nr_bytes:(\d+)\s+nr_ops:(\d+)/ ) {
+                $ts = $1, $bytes = $2, $ops = $3;
+                if (defined $prev_ts and ((my $ts_diff = ($ts - $prev_ts) / 1000) > 0)) {
+                    {
+                        my %desc = ('source' => 'uperf', 'class' => 'throughput', 'type' => 'Gbps');
+                        my %names = ('cmd' => 'readandwrite');
+                        my %s = ('end' => int $ts,
+                                'value' =>  8.0 * ($bytes - $prev_bytes) / 1000000000 / $ts_diff);
+                        log_sample("0", \%desc, \%names, \%s);
+                    }
+                    if ($test_type eq "rr" or $test_type eq "ping-pong" ) {
+                        # RR transactions are two operations
+                        my $tps = ($ops - $prev_ops) / $ts_diff / 2;
+                        {
+                            my %desc = ('source' => 'uperf', 'class' => 'throughput', 'type' => 'transactions-sec');
+                            my %s = ('end' => int $ts, 'value' => 0.0 + $tps);
+                            log_sample("0", \%desc, \%names, \%s);
+                        }
+                        if ($tps > 0) {
+                            my %desc = ('source' => 'uperf', 'class' => 'count', 'type' => 'round-trip-usec');
+                            my %s = ('end' => int $ts, 'value' => 0.0 + $nthreads / $tps *1000000);
+                            log_sample("0", \%desc, \%names, \%s);
+                        }
+                    }
+                }
+                $prev_ts = $ts;
+                $prev_bytes = $bytes;
+                $prev_ops = $ops;
+            }
         }
     }
     close($fh);
