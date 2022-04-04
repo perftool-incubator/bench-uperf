@@ -32,7 +32,8 @@ GetOptions ("test-type=s" => \$test_type,
             "rsize=i" => \$ignore,
             "protocol=s" => \$ignore,
             "duration=i" => \$ignore,
-            "ifname=s" => \$ignore
+            "ifname=s" => \$ignore,
+            "cpu-pin=s" => \$ignore,
             );
 
 if (! defined $test_type) {

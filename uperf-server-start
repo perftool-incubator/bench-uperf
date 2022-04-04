@@ -12,8 +12,9 @@ validate_sw_prereqs jq ss uperf getopt ip
 control_port=""
 data_port=""
 ifname=""
+cpu_pin=""
 
-longopts="ifname:"
+longopts="ifname:,cpu-pin:"
 opts=$(getopt -q -o "" --longoptions "$longopts" -n "getopt.sh" -- "$@");
 if [ $? -ne 0 ]; then
     exit_error  "Unrecognized option specified"
@@ -21,6 +22,12 @@ fi
 eval set -- "$opts";
 while true; do
     case "$1" in
+	--cpu-pin)
+	    shift;
+	    cpu_pin=$1
+	    echo "cpu_pin=${cpu_pin}"
+	    shift;
+	    ;;
         --ifname)
             shift;
             ifname="$1"
@@ -39,6 +46,14 @@ while true; do
             exit_error "Invalid option: $1"
     esac
 done
+
+case "${cpu_pin}" in
+    ""|"numa")
+	;;
+    *)
+	exit_error "unsupported cpu-pin value '${cpu_pin}'"
+	;;
+esac
 
 # A benchmark server can provide both an IP and ports to the client.
 # The server must package these in a JSON, which will be sent to
@@ -116,7 +131,27 @@ ss -tlnp
 echo
 #TODO: exit with error if ports still used
 
-cmd="uperf -s -P $control_port"
+ifname_numa_node=-1
+ifname_numa_node_cpus=-1
+if [ -e /sys/class/net/${ifname}/device/numa_node ]; then
+    ifname_numa_node=$(cat /sys/class/net/${ifname}/device/numa_node)
+
+    ifname_numa_node_cpus=$(cat /sys/devices/system/node/node${ifname_numa_node}/cpulist)
+elif [ "${cpu_pin}" == "numa" ]; then
+    exit_error "cannot determine numa node for interface '${ifname}' and cpu-pin is numa"
+fi
+
+echo "ifname=${ifname}"
+echo "ifname_numa_node=${ifname_numa_node}"
+
+cpu_pin_cmd=""
+case "${cpu_pin}" in
+    "numa")
+	cpu_pin_cmd="taskset --cpu-list ${ifname_numa_node_cpus}"
+	;;
+esac
+
+cmd="${cpu_pin_cmd} uperf -s -P $control_port"
 echo "going to run: $cmd"
 export MALLOC_CHECK_=2
 $cmd 2>&1 >uperf-server-start.txt &

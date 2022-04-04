@@ -33,6 +33,11 @@
 	    "description": "any non-empty string",
 	    "args": [ "ifname" ],
 	    "vals": "^.+$"
+	},
+	"cpu-pinning": {
+	    "description": "valid cpu pinning modes",
+	    "args": [ "cpu-pin" ],
+	    "vals": "^numa$"
 	}
     }
 }

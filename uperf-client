@@ -19,8 +19,9 @@ control_port=""
 data_port=""
 test_type="stream"
 uopts=""
+cpu_pin=""
 
-longopts="test-type:,protocol:,rsize:,wsize:,nthreads:,remotehost:,duration:"
+longopts="test-type:,protocol:,rsize:,wsize:,nthreads:,remotehost:,duration:,cpu-pin:"
 opts=$(getopt -q -o "" --longoptions "$longopts" -n "getopt.sh" -- "$@");
 if [ $? -ne 0 ]; then
     exit_error "Unrecognized option specified"
@@ -28,6 +29,12 @@ fi
 eval set -- "$opts";
 while true; do
     case "$1" in
+	--cpu-pin)
+	    shift;
+	    cpu_pin=$1
+	    echo "cpu_pin=${cpu_pin}"
+	    shift;
+	    ;;
         --test-type)
             shift;
             test_type=$1
@@ -82,6 +89,14 @@ while true; do
     esac
 done
 
+case "${cpu_pin}" in
+    ""|"numa")
+	;;
+    *)
+	exit_error "unsupported cpu-pin value '${cpu_pin}'"
+	;;
+esac
+
 if [ ! -e /tmp/xml-files/$test_type.xml ]; then
     exit_error "/tmp/xml-files/$test_type.xml was not found"
 fi
@@ -121,6 +136,21 @@ if [ -z "$remotehost" ]; then
 fi
 # TODO: validate $remotehost with regex
 
+ifname=$(ip route get ${remotehost} | head -n 1 | awk -F" dev " '{ print $2 }' | awk -F" src " '{ print $1 }')
+if [ ! -e /sys/class/net/${ifname} ]; then
+    exit_error "invalid interface '${ifname}' found"
+fi
+
+ifname_numa_node=-1
+ifname_numa_node_cpus=-1
+if [ -e /sys/class/net/${ifname}/device/numa_node ]; then
+    ifname_numa_node=$(cat /sys/class/net/${ifname}/device/numa_node)
+
+    ifname_numa_node_cpus=$(cat /sys/devices/system/node/node${ifname_numa_node}/cpulist)
+elif [ "${cpu_pin}" == "numa" ]; then
+    exit_error "cannot determine numa node for interface '${ifname}' and cpu-pin is numa"
+fi
+
 # These ports should come from the endpoint, but if for some
 # reason they don't the default port numbers are calculated
 # in this way:
@@ -137,7 +167,11 @@ if [[ "$test_type" = "crr" ]]; then
     # show more details of connect/disconnect
     uopts="-tTfa"
 fi
+
 /bin/cp /tmp/xml-files/$test_type.xml test.xml
+
+echo "ifname=${ifname}"
+echo "ifname_numa_node=${ifname_numa_node}"
 echo "remotehost=$remotehost"
 echo "control_port=$control_port"
 echo "data_port=$data_port"
@@ -145,8 +179,17 @@ echo "duration=$duration"
 echo "wsize=$wsize"
 echo "rsize=$rsize"
 echo "nthreads=$nthreads"
-echo "nthreads=$nthreads"
+echo "protocol=$protocol"
 
+cpu_pin_cmd=""
+case "${cpu_pin}" in
+    "numa")
+	cpu_pin_cmd="taskset --cpu-list ${ifname_numa_node_cpus}"
+	;;
+esac
+
+cmd+="${cpu_pin_cmd} uperf -R -m test.xml -P $control_port $uopts"
+echo "going to run: ${cmd}"
 nthreads=$nthreads \
 protocol=$protocol \
 remotehost=$remotehost \
@@ -154,7 +197,7 @@ duration=$duration \
 wsize=$wsize \
 rsize=$rsize \
 port=$data_port \
-uperf -R -m test.xml -P $control_port $uopts 2>&1 >uperf-client-result.txt
+${cmd} 2>&1 >uperf-client-result.txt
 uperf_rc=$?
 if [ $uperf_rc -gt 0 ]; then
     uperf_errors=`grep -i error uperf-client-result.txt`
