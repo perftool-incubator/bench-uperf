@@ -107,7 +107,10 @@ if [ -z "$remotehost" ]; then
     echo "--remotehost was not set via cmdline args, checking any messages from the endpoint"
     echo "These files exist in ./msgs/rx:"
     /bin/ls -l msgs/rx
-    file="msgs/rx/client-start:1"
+    file="msgs/rx/server-start-end:1"
+    if [ ! -e "${file}" ]; then
+	file="msgs/rx/client-start:1"
+    fi
     if [ -e "$file" ]; then
         echo "Found $file"
         ipaddr=`jq -r '.svc.ip' $file`
