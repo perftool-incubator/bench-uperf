@@ -105,7 +105,7 @@ if [ ! -z "$ifname" ]; then
         echo "IP was found: $ip"
     fi
 else
-    echo "Not going to look for an IP since --server-ifname was not used."
+    echo "Not going to look for an IP since --ifname was not used."
 fi
 
 # Queue ip/port info, to be sent to endpoint
