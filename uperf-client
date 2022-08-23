@@ -207,9 +207,9 @@ duration=$duration \
 wsize=$wsize \
 rsize=$rsize \
 port=$data_port \
-${cmd} 2>&1 >uperf-client-result.txt
+${cmd} > uperf-client-result.txt 2>&1
 uperf_rc=$?
-if [ $uperf_rc -gt 0 ]; then
-    uperf_errors=`grep -i error uperf-client-result.txt`
+uperf_errors=$(grep -i error uperf-client-result.txt)
+if [ ${uperf_rc} -gt 0 -o -z "${uperf_errors}" ]; then
     exit_error "$uperf_errors"
 fi
