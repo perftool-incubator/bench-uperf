@@ -1,0 +1,14 @@
+name: crucible-ci
+
+on:
+  pull_request:
+    branches: [ master ]
+    paths:
+      - LICENSE
+      - '**.md'
+
+jobs:
+  crucible-ci-complete:
+    runs-on: ubuntu-latest
+    steps:
+      - run: 'echo "No build required" '
