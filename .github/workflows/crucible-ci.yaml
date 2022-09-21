@@ -51,8 +51,8 @@ jobs:
     needs:
     - generate-job-matrix-parameters
     - display-job-matrix-parameters
-    continue-on-error: true
     strategy:
+      fail-fast: false
       matrix:
         endpoint: ${{ fromJSON(needs.generate-job-matrix-parameters.outputs.endpoints_github) }}
         userenv: ${{ fromJSON(needs.generate-job-matrix-parameters.outputs.userenvs) }}
