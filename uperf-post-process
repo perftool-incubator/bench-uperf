@@ -30,6 +30,7 @@ GetOptions ("test-type=s" => \$test_type,
             "remotehost=s" => \$remotehost,
             "wsize=i" => \$ignore,
             "rsize=i" => \$ignore,
+            "think=f" => \$ignore,
             "protocol=s" => \$ignore,
             "duration=i" => \$ignore,
             "ifname=s" => \$ignore,
@@ -42,8 +43,10 @@ if (! defined $test_type) {
 }
 
 my $primary_metric;
-if ($test_type eq "rr" or $test_type eq "ping-pong" or $test_type eq "crr") {
+if ($test_type eq "rr" or $test_type eq "ping-pong") {
     $primary_metric = 'transactions-sec';
+} elsif ($test_type eq "crr") {
+    $primary_metric = 'connections-sec';
 } else {
     $primary_metric = 'Gbps';
 }
@@ -65,16 +68,16 @@ if ($rc == 0 and defined $fh) {
                                 'value' =>  8.0 * ($bytes - $prev_bytes) / 1000000000 / $ts_diff);
                         log_sample("0", \%desc, \%names, \%s);
                     }
-                    # CPS transactions are four operations
-                    my $tps = ($ops - $prev_ops) / $ts_diff / 4;
+                    # CPS transactions are five operations: connect, write, think, read, disconnect
+                    my $cps = ($ops - $prev_ops) / $ts_diff / 5;
                     {
-                        my %desc = ('source' => 'uperf', 'class' => 'throughput', 'type' => 'transactions-sec');
-                        my %s = ('end' => int $ts, 'value' => 0.0 + $tps);
+                        my %desc = ('source' => 'uperf', 'class' => 'throughput', 'type' => 'connections-sec');
+                        my %s = ('end' => int $ts, 'value' => 0.0 + $cps);
                         log_sample("0", \%desc, \%names, \%s);
                     }
-                    if ($tps > 0) {
+                    if ($cps > 0) {
                         my %desc = ('source' => 'uperf', 'class' => 'count', 'type' => 'round-trip-usec');
-                        my %s = ('end' => int $ts, 'value' => 0.0 + $nthreads / $tps *1000000);
+                        my %s = ('end' => int $ts, 'value' => 0.0 + $nthreads / $cps *1000000);
                         log_sample("0", \%desc, \%names, \%s);
                     }
                 }
@@ -125,6 +128,7 @@ if ($rc == 0 and defined $fh) {
     $period{'metric-files'} = \@metric_files;
     push(@periods, \%period);
     $sample{'periods'} = \@periods;
+    $sample{'benchmark'} = 'uperf';
     $sample{'primary-period'} = 'measurement';
     $sample{'primary-metric'} = $primary_metric;
     $rc = put_json_file("post-process-data.json", \%sample);
