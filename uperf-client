@@ -13,6 +13,7 @@ nthreads=1
 protocol="tcp"
 wsize=1024
 rsize=1024
+think=0.001 # time in seconds
 duration=60
 remotehost=""
 control_port=""
@@ -21,7 +22,7 @@ test_type="stream"
 uopts=""
 cpu_pin=""
 
-longopts="test-type:,protocol:,rsize:,wsize:,nthreads:,remotehost:,duration:,cpu-pin:"
+longopts="test-type:,protocol:,rsize:,wsize:,nthreads:,remotehost:,duration:,cpu-pin:,think:"
 opts=$(getopt -q -o "" --longoptions "$longopts" -n "getopt.sh" -- "$@");
 if [ $? -ne 0 ]; then
     exit_error "Unrecognized option specified"
@@ -66,6 +67,12 @@ while true; do
             shift;
             wsize=$1
             echo "wsize=$wsize"
+            shift
+            ;;
+        --think)
+            shift;
+            think=$1
+            echo "think=$think"
             shift
             ;;
         --remotehost)
@@ -188,6 +195,7 @@ echo "data_port=$data_port"
 echo "duration=$duration"
 echo "wsize=$wsize"
 echo "rsize=$rsize"
+echo "think=$think"
 echo "nthreads=$nthreads"
 echo "protocol=$protocol"
 
@@ -206,6 +214,7 @@ remotehost=$remotehost \
 duration=$duration \
 wsize=$wsize \
 rsize=$rsize \
+think=$think \
 port=$data_port \
 ${cmd} > uperf-client-result.txt 2>&1
 uperf_rc=$?

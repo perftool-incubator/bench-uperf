@@ -34,7 +34,7 @@ while true; do
             echo "ifname=$ifname"
             shift
             ;;
-        --test-type|--nthreads|--protocol|--rsize|--wsize|--remotehost|--duration)
+        --test-type|--nthreads|--protocol|--rsize|--wsize|--remotehost|--duration|--think)
             shift;
             shift;
             ;;
