@@ -195,6 +195,7 @@ echo "data_port=$data_port"
 echo "duration=$duration"
 echo "wsize=$wsize"
 echo "rsize=$rsize"
+echo "think=$think"
 echo "nthreads=$nthreads"
 echo "protocol=$protocol"
 
