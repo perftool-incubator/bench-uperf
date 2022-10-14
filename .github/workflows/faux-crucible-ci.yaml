@@ -6,6 +6,8 @@ on:
     paths:
       - LICENSE
       - '**.md'
+      - .github/workflows/faux-crucible-ci.yaml
+      - 'docs/**'
 
 jobs:
   crucible-ci-complete:
