@@ -220,5 +220,9 @@ ${cmd} > uperf-client-result.txt 2>&1
 uperf_rc=$?
 uperf_errors=$(grep -i error uperf-client-result.txt)
 if [ ${uperf_rc} -gt 0 -o -z "${uperf_errors}" ]; then
+    if [ $test_type == "crr" ]; then
+        # Do not error on this, as it is sadly common for CRR, and the test will resume anyway
+        exit 0
+    fi
     exit_error "$uperf_errors"
 fi
