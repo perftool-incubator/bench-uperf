@@ -17,13 +17,12 @@
 	        "name": "uperf_src",
 	        "type": "source",
 	        "source_info": {
-		        "url": "https://github.com/uperf/uperf/archive/refs/tags/v1.0.8.tar.gz",
-		        "filename": "uperf_src.tar.gz",
+		        "url": "https://github.com/uperf/uperf/archive/1.0.7.tar.gz",
+		        "filename": "1.0.7.tar.gz",
 		        "commands": { 
-		            "unpack": "tar -xzf uperf_src.tar.gz",
-		            "get_dir": "tar -tzf uperf_src.tar.gz | head -n 1",
+		            "unpack": "tar -xzf 1.0.7.tar.gz",
+		            "get_dir": "tar -tzf 1.0.7.tar.gz | head -n 1",
 		            "commands": [
-			            "autoreconf --install",
 			            "CFLAGS=\"-ggdb\" ./configure --disable-sctp",
 			            "make",
 			            "make install",
