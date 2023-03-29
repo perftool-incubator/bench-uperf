@@ -14,7 +14,7 @@ uperf-server-stop | Stop a uperf server process. The script redirects standard o
 
 ## JSON files
 
-The included JSON files adhere to the [Common Data Model (CDM) Schema](https://github.com/microsoft/CDM).
+The included JSON files adhere to the [Common Data Model (CDM) Schema](https://github.com/perftool-incubator/CommonDataModel).
 
 Name | Description
 -----|------------
