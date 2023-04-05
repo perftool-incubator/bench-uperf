@@ -8,13 +8,11 @@ Name | Description
 uperf-base | Checks if the bench-base library can be sourced from the ${TOOLBOX_HOME}/bash/library/ directory. If the library cannot be sourced, the script prints an error message and exits with an exit status of 1.
 uperf-client | Runs a network benchmark using uperf, a network performance tool. The script has several command-line options that can be used to customize the benchmark run, including the number of threads, protocol, packet sizes, and duration.
 uperf-get-runtime | Outputs the duration of a benchmark run.
-uperf-post-process | Perl script that processes results from the uPerf benchmark tool and outputs a JSON file containing performance metrics.
+uperf-post-process | Perl script that processes results from the uPerf benchmark tool and outputs a JSON file containing performance metrics. The JSON files adhere to a [Common Data Model (CDM) Schema](https://github.com/perftool-incubator/CommonDataModel).
 uperf-server-start | Bash script that runs the uperf network performance benchmarking tool as a server. The script sets up the environment for running the tool and starts the server process with the specified parameters.
 uperf-server-stop | Stop a uperf server process. The script redirects standard output and standard error to a file named "uperf-server-stop-stderrout.txt".
 
 ## JSON files
-
-The included JSON files adhere to the [Common Data Model (CDM) Schema](https://github.com/perftool-incubator/CommonDataModel).
 
 Name | Description
 -----|------------
