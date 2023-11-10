@@ -147,7 +147,9 @@ ifname_numa_node=-1
 ifname_numa_node_cpus=-1
 if [ -e /sys/class/net/${ifname}/device/numa_node ]; then
     ifname_numa_node=$(cat /sys/class/net/${ifname}/device/numa_node)
-
+    if [ $ifname_numa_node == "-1" ] && [ "${cpu_pin}" == "numa" ]; then
+        exit_error "PCIe has no NUMA locality, but cpu-pin is numa"
+    fi
     ifname_numa_node_cpus=$(cat /sys/devices/system/node/node${ifname_numa_node}/cpulist)
 elif [ "${cpu_pin}" == "numa" ]; then
     exit_error "cannot determine numa node for interface '${ifname}' and cpu-pin is numa"
