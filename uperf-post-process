@@ -54,7 +54,7 @@ my $result_file = "uperf-client-result.txt";
 my %desc = ('source' => 'uperf', 'class' => 'throughput');
 (my $rc, my $fh) = open_read_text_file($result_file);
 if ($rc == 0 and defined $fh) {
-    my $ts, my $prev_ts, my $bytes, my $prev_bytes, my $ops, my $prev_ops;;
+    my $ts, my $prev_ts, my $start_ts, my $bytes, my $prev_bytes, my $ops, my $prev_ops;;
     my %names = ();
     while (<$fh>) {
         if ( $test_type eq "crr") {
@@ -86,6 +86,16 @@ if ($rc == 0 and defined $fh) {
                 $prev_ops = $ops;
             }
         } else {
+            # Extract % stats from lines                  Time       Data     Throughput   Operations      Errors
+            #                          "Difference(%)     -0.99%     52.34%       52.81%       52.34%       0.00% "
+
+            if ( /^Difference\(%\) \s+(-?\d+\.\d+)% \s+(-?\d+\.\d+)% \s+(-?\d+\.\d+)% \s+(-?\d+\.\d+)% \s+(-?\d+\.\d+)%/   ) {
+                my $Tput_val = $3;
+                my %desc = ('source' => 'uperf', 'class' => 'count', 'type' => 'throughput-delta-pct');
+                my %s = ('begin' => int $start_ts, 'end' => int $ts, 'value' => $Tput_val);
+                log_sample("0", \%desc, \%names, \%s);
+            }
+
             if ( /^timestamp_ms:(\d+)\.\d+\s+name:Txn2\s+nr_bytes:(\d+)\s+nr_ops:(\d+)/ ) {
                 $ts = $1, $bytes = $2, $ops = $3;
                 if (defined $prev_ts and ((my $ts_diff = ($ts - $prev_ts) / 1000) > 0)) {
@@ -110,6 +120,8 @@ if ($rc == 0 and defined $fh) {
                             log_sample("0", \%desc, \%names, \%s);
                         }
                     }
+                } else {
+                    $start_ts = $ts;
                 }
                 $prev_ts = $ts;
                 $prev_bytes = $bytes;
