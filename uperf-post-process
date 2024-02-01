@@ -38,8 +38,8 @@ GetOptions ("test-type=s" => \$test_type,
             );
 
 if (! defined $test_type) {
-    print "uperf-post-process(): test-type not defined, exiting\n";
-    exit 1;
+    print "uperf-post-process(): test-type not defined, assuming this is server and exiting\n";
+    exit 0;
 }
 
 my $primary_metric;
