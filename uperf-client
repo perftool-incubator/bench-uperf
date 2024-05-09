@@ -22,7 +22,7 @@ test_type="stream"
 uopts=""
 cpu_pin=""
 
-longopts="test-type:,protocol:,rsize:,wsize:,nthreads:,remotehost:,duration:,cpu-pin:,think:"
+longopts="test-type:,protocol:,rsize:,wsize:,nthreads:,remotehost:,duration:,cpu-pin:,think:,passthru:"
 opts=$(getopt -q -o "" --longoptions "$longopts" -n "getopt.sh" -- "$@");
 if [ $? -ne 0 ]; then
     exit_error "Unrecognized option specified"
@@ -85,6 +85,12 @@ while true; do
             shift;
             duration=$1
             echo "duration=$duration"
+            shift
+            ;;
+        --passthru)     # uperf options that user wants passthru
+            shift;
+            pt_opts=$1
+            echo "pt_opts=$pt_opts"
             shift
             ;;
         --)
@@ -209,6 +215,13 @@ case "${cpu_pin}" in
 esac
 
 cmd+="${cpu_pin_cmd} uperf -R -m test.xml -P $control_port $uopts"
+
+# strip ',' from the passthru options 
+passthru_opts=$(echo "$pt_opts" | sed 's/,/ /g')
+options+=" $passthru_opts"
+echo "passthu options: $options"
+cmd+="$options"
+
 echo "going to run: ${cmd}"
 nthreads=$nthreads \
 protocol=$protocol \

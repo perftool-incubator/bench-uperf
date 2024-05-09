@@ -14,7 +14,7 @@ data_port=""
 ifname=""
 cpu_pin=""
 
-longopts="ifname:,cpu-pin:"
+longopts="ifname:,cpu-pin:,passthru:"
 opts=$(getopt -q -o "" --longoptions "$longopts" -n "getopt.sh" -- "$@");
 if [ $? -ne 0 ]; then
     exit_error  "Unrecognized option specified"
@@ -37,6 +37,12 @@ while true; do
         --test-type|--nthreads|--protocol|--rsize|--wsize|--remotehost|--duration|--think)
             shift;
             shift;
+            ;;
+        --passthru)     # uperf options that user wants passthru
+            shift;
+            pt_opts=$1
+            echo "pt_opts=$pt_opts"
+            shift
             ;;
         --)
             shift;
@@ -166,6 +172,14 @@ case "${cpu_pin}" in
 esac
 
 cmd="${cpu_pin_cmd} uperf -s -P $control_port"
+
+# strip ',' from the passthru options 
+passthru_opts=$(echo "$pt_opts" | sed 's/,/ /g')
+options+=" $passthru_opts"
+echo "passthu optins run: $options"
+
+cmd+="$options"
+
 echo "going to run: $cmd"
 export MALLOC_CHECK_=2
 $cmd 2>&1 >uperf-server-start.txt &
