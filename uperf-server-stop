@@ -3,8 +3,25 @@ exec >uperf-server-stop-stderrout.txt
 exec 2>&1
 echo "args; $@"
 
+kill_child_pid() {
+    # uperf server spawns a child process internally. Kill that child pid also. If not
+    # and when we have not fully closed connection cleanly i.e pending on FIN-ACK in CRR,
+    # the child still LISTEN on port and will cause the next run to fail to connect. 
+    # The extra "grep -v" to exlude the grep command's pid.
+    #   root        3305       1  0 14:13 ?        00:00:00 uperf -s -P 30016
+    #   root        3388    3305 99 14:14 ?        00:00:03 uperf -s -P 30016
+    #   root        3454    3387  0 14:14 pts/0    00:00:00 grep uperf
+
+    local pid=$(ps aux | grep -v grep | grep "uperf .* -P $1" | awk '{print $2}' | head -n 1)
+    if [ -n "$pid" ]; then
+        echo "Killing child process with PID $pid"
+        kill -9 $pid
+    fi
+}
+
 if [ -e uperf-server.pid ]; then
     pid=`cat uperf-server.pid`
+    control_port=$(ps -p $pid -o args | grep -o '\-P [^ ]*' | awk '{print $2}')
     echo "Going to kill pid $pid"
     kill -15 $pid
     sleep 3
@@ -12,6 +29,7 @@ if [ -e uperf-server.pid ]; then
         echo "PID $pid still exists, trying kill -9"
         kill -9 $pid
     fi
+    kill_child_pid "$control_port"
 else
     echo "uperf-server.pid not found"
     echo "PWD: `/bin/pwd`"
