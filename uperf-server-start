@@ -53,8 +53,13 @@ while true; do
     esac
 done
 
+cpu_pin_param=""
+if echo "${cpu_pin}" | grep -q "^cpu:"; then
+    cpu_pin_param=$(echo "${cpu_pin}" | awk -F: '{ print $2 }')
+    cpu_pin=$(echo "${cpu_pin}" | awk -F: '{ print $1 }')
+fi
 case "${cpu_pin}" in
-    ""|"numa")
+    ""|"cpu"|"numa")
 	;;
     *)
 	exit_error "unsupported cpu-pin value '${cpu_pin}'"
@@ -168,6 +173,9 @@ cpu_pin_cmd=""
 case "${cpu_pin}" in
     "numa")
 	cpu_pin_cmd="taskset --cpu-list ${ifname_numa_node_cpus}"
+	;;
+    "cpu")
+	cpu_pin_cmd="taskset --cpu-list ${cpu_pin_param}"
 	;;
 esac
 

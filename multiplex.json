@@ -1,11 +1,11 @@
 {
     "presets": {
         "basic" : [
-	    { "arg": "test-type", "vals": ["stream"] },
-	    { "arg": "wsize", "vals": ["16384"] },
-	    { "arg": "duration", "vals": ["60"] },
-	    { "arg": "protocol", "vals": ["tcp"] },
-	    { "arg": "nthreads", "vals": ["1"] }
+            { "arg": "test-type", "vals": ["stream"] },
+            { "arg": "wsize", "vals": ["16384"] },
+            { "arg": "duration", "vals": ["60"] },
+            { "arg": "protocol", "vals": ["tcp"] },
+            { "arg": "nthreads", "vals": ["1"] }
         ]
     },
     "validations": {
@@ -34,20 +34,20 @@
             "args": [ "remotehost" ],
             "vals": ".+"
         },
-	"non-empty-string": {
-	    "description": "any non-empty string",
-	    "args": [ "ifname" ],
-	    "vals": "^.+$"
-	},
-	"passthru": {
-	    "description": "comma separated list",
-	    "args": [ "passthru" ],
-	    "vals": "^.+$"
-    },
-	"cpu-pinning": {
-	    "description": "valid cpu pinning modes",
-	    "args": [ "cpu-pin" ],
-	    "vals": "^numa$"
-	}
+        "non-empty-string": {
+            "description": "any non-empty string",
+            "args": [ "ifname" ],
+            "vals": "^.+$"
+        },
+        "passthru": {
+            "description": "comma separated list",
+            "args": [ "passthru" ],
+            "vals": "^.+$"
+        },
+        "cpu-pinning": {
+            "description": "valid cpu pinning modes",
+            "args": [ "cpu-pin" ],
+            "vals": "^numa$|^cpu:(([0-9]*)(-[1-9][0-9]*)?)(,(([1-9][0-9]*)(-[1-9][0-9]*)?))*$"
+        }
     }
 }
