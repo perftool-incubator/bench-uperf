@@ -21,8 +21,9 @@ data_port=""
 test_type="stream"
 uopts=""
 cpu_pin=""
+ipv="4"
 
-longopts="test-type:,protocol:,rsize:,wsize:,nthreads:,remotehost:,duration:,cpu-pin:,think:,passthru:"
+longopts="ipv:,test-type:,protocol:,rsize:,wsize:,nthreads:,remotehost:,duration:,cpu-pin:,think:,passthru:"
 opts=$(getopt -q -o "" --longoptions "$longopts" -n "getopt.sh" -- "$@");
 if [ $? -ne 0 ]; then
     exit_error "Unrecognized option specified"
@@ -30,12 +31,18 @@ fi
 eval set -- "$opts";
 while true; do
     case "$1" in
-	--cpu-pin)
-	    shift;
-	    cpu_pin=$1
-	    echo "cpu_pin=${cpu_pin}"
-	    shift;
-	    ;;
+        --ipv)
+            shift;
+            ipv="$1"
+            echo "ipv=$ipv"
+            shift
+            ;;
+        --cpu-pin)
+            shift;
+            cpu_pin=$1
+            echo "cpu_pin=${cpu_pin}"
+            shift;
+            ;;
         --test-type)
             shift;
             test_type=$1

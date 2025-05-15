@@ -19,6 +19,11 @@
             "args": [ "protocol" ],
             "vals": "^tcp$|^udp$"
         },
+        "ipv": {
+            "description": "ipv4 or ipv6",
+            "args": [ "ipv" ],
+            "vals": "^4$|^6$"
+        },
         "positive_integer": {
             "description": "a whole number greater than 0",
             "args": [ "wsize", "rsize", "nthreads", "duration" ],
