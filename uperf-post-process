@@ -35,6 +35,7 @@ GetOptions ("test-type=s" => \$test_type,
             "duration=i" => \$ignore,
             "ifname=s" => \$ignore,
             "cpu-pin=s" => \$ignore,
+            "ipv=i" => \$ignore,
             );
 
 if (! defined $test_type) {
