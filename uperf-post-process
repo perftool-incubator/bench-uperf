@@ -36,6 +36,18 @@ GetOptions ("test-type=s" => \$test_type,
             "ifname=s" => \$ignore,
             "cpu-pin=s" => \$ignore,
             "ipv=i" => \$ignore,
+            "main-thread=i" => \$ignore,
+            "history=s" => \$ignore,
+            "histogram=s" => \$ignore,
+            "adaptive-rx=s" => \$ignore,
+            "adaptive-tx=s" => \$ignore,
+            "flow-control-rx=s" => \$ignore,
+            "flow-control-tx=s" => \$ignore,
+            "lro=s" => \$ignore,
+            "rxd=i" => \$ignore,
+            "txd=i" => \$ignore,
+            "queues=s" => \$ignore,
+            "priority=s" => \$ignore,
             );
 
 if (! defined $test_type) {

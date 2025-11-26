@@ -1,0 +1,84 @@
+{
+    "benchmarks": [
+        {
+            "name": "uperf",
+            "ids": "1",
+            "mv-params": {
+                "global-options": [
+                    {
+                        "name": "global",
+                        "params": [
+                            { "arg": "duration", "vals": [ "60", "600", "3600", "7200", "14400", "28800" ], "role": "client" },
+			    { "arg": "protocol", "vals": ["tcp", "udp"] },
+                            { "arg": "nthreads", "vals": ["1"] },
+                            { "arg": "cpu-pin", "vals": ["cpu:50,51"], "role": "all" },
+                            { "arg": "main-thread", "vals": ["51"], "role": "all" },
+                            { "arg": "ifname", "vals": ["ens7f1np1"], "role": "server" },
+                            { "arg": "history", "vals": ["no"] },
+                            { "arg": "histogram", "vals": ["yes"] },
+                            { "arg": "adaptive-rx", "vals": ["off"], "role": "all" },
+                            { "arg": "adaptive-tx", "vals": ["off"], "role": "all" },
+                            { "arg": "flow-control-rx", "vals": ["off"], "role": "all" },
+                            { "arg": "flow-control-tx", "vals": ["off"], "role": "all" },
+                            { "arg": "lro", "vals": ["off"], "role": "all" },
+                            { "arg": "rxd", "vals": ["512"], "role": "all" },
+                            { "arg": "txd", "vals": ["512"], "role": "all" },
+                            { "arg": "queues", "vals": ["1"], "role": "all" },
+                            { "arg": "quiet", "vals": ["yes"] },
+                            { "arg": "priority", "vals": ["2"], "role": "all" }
+                        ]
+                    }
+                ],
+                "sets": [
+                    {
+                        "include": "global",
+                        "params": [
+				{ "arg": "test-type", "vals": ["rr"] },
+        			{ "arg": "wsize", "vals": ["1"] },
+        			{ "arg": "rsize", "vals": ["1"] }
+                        ]
+                    }
+                ]
+            }
+        }
+    ],
+    "tags": {
+	"host": "rhel10"
+    },
+    "endpoints": [
+        {
+            "type": "remotehosts",
+            "settings": {
+                "osruntime": "chroot"
+            },
+            "remotes": [
+                {
+                    "engines": [
+                        { "role": "server", "ids": "1" }
+                    ],
+                    "config": {
+                        "host": "server.redhat.example",
+                        "settings": {
+                            "cpu-partitioning": true
+                        }
+                    }
+                },
+                {
+                    "engines": [
+                        { "role": "client", "ids": "1" }
+                    ],
+                    "config": {
+                        "host": "client.redhat.example",
+                        "settings": {
+                            "cpu-partitioning": true
+                        }
+                    }
+                }
+            ]
+        }
+    ],
+    "run-params": {
+        "num-samples": 1,
+        "max-sample-failures": 1
+    }
+}

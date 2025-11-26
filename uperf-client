@@ -22,8 +22,26 @@ test_type="stream"
 uopts=""
 cpu_pin=""
 ipv="4"
+raw_ts="-R"
+flow_control_rx_=""
+flow_control_tx_=""
+lro=""
+rxd=""
+txd=""
+adaptive_rx=""
+adaptive_tx=""
+rx_usecs=""
+tx_usecs=""
+queues="default"
+irqbalance=""
+main_thread=""
+priority=""
 
-longopts="ipv:,test-type:,protocol:,rsize:,wsize:,nthreads:,remotehost:,duration:,cpu-pin:,think:,passthru:"
+longopts="ipv:,test-type:,protocol:,rsize:,wsize:,nthreads:,remotehost:,
+duration:,cpu-pin:,think:,passthru:,history:,histogram:,bucket-length:,
+max-bucket:,adaptive-tx:,adaptive-rx:,lro:,tx-usecs:,rx-usecs:,rxd:,txd:,
+flow-control-rx:,flow-control-tx:,queues:,priority:,irqbalance:,main-thread:,
+quiet:"
 opts=$(getopt -q -o "" --longoptions "$longopts" -n "getopt.sh" -- "$@");
 if [ $? -ne 0 ]; then
     exit_error "Unrecognized option specified"
@@ -31,81 +49,201 @@ fi
 eval set -- "$opts";
 while true; do
     case "$1" in
+        --quiet)
+            shift
+            if [ "$1" == "yes" ]; then
+                uopts="$uopts -q"
+                echo "uopts=$uopts"
+            fi
+            shift
+            ;;
         --ipv)
-            shift;
+            shift
             ipv="$1"
             echo "ipv=$ipv"
             shift
             ;;
         --cpu-pin)
-            shift;
+            shift
             cpu_pin=$1
             echo "cpu_pin=${cpu_pin}"
-            shift;
+            shift
             ;;
         --test-type)
-            shift;
+            shift
             test_type=$1
             echo "test_type=$test_type"
             if [ ! -e /tmp/xml-files/$test_type.xml ]; then
                 exit_error "could not find /tmp/xml-files/$test_type.xml"
             fi
-            shift;
+            shift
             ;;
         --nthreads)
-            shift;
+            shift
             nthreads=$1
             echo "nthreads=$nthreads"
-            shift;
+            shift
             ;;
         --protocol)
-            shift;
+            shift
             protocol=$1
             echo "protocol=$protocol"
             shift
             ;;
         --rsize)
-            shift;
+            shift
             rsize=$1
             echo "rsize=$rsize"
             shift
             ;;
         --wsize)
-            shift;
+            shift
             wsize=$1
             echo "wsize=$wsize"
             shift
             ;;
         --think)
-            shift;
+            shift
             think=$1
             echo "think=$think"
             shift
             ;;
         --remotehost)
-            shift;
+            shift
             remotehost=$1
             echo "remotehost=$remotehost"
             shift
             ;;
         --duration)
-            shift;
+            shift
             duration=$1
             echo "duration=$duration"
             shift
             ;;
         --passthru)     # uperf options that user wants passthru
-            shift;
+            shift
             pt_opts=$1
             echo "pt_opts=$pt_opts"
             shift
             ;;
+        --main-thread)
+            shift
+            main_thread=$1
+            echo "main-thread=$main_thread"
+            main_thread_cpu="-M $main_thread"
+            shift
+            ;;
+        --histogram)
+            shift
+            if [ "$1" == "yes" ]; then
+                # Disable Raw timestamp (-R)
+                raw_ts=""
+                uopts="$uopts -H histogram.txt"
+                echo "uopts=$uopts"
+            fi
+            shift
+            ;;
+        --bucket-length)
+            shift
+            bucket_len=$1
+            echo "bucket-length=$bucket_len"
+            uopts="$uopts -b $bucket_len"
+            shift
+            ;;
+        --max-bucket)
+            shift
+            max_bucket=$1
+            echo "max-bucket=$max_bucket"
+            uopts="$uopts -B $max_bucket"
+            shift
+            ;;
+        --history)
+            shift
+            if [ "$1" == "yes" ]; then
+               uopts="$uopts -X history.txt"
+               echo "uopts=$uopts"
+            fi
+            shift
+            ;;
+        --adaptive-tx)
+            shift
+            adaptive_tx=$1
+            echo "adaptive_tx=$adaptive_tx"
+            shift
+            ;;
+        --adaptive-rx)
+            shift
+            adaptive_rx=$1
+            echo "adaptive_rx=$adaptive_rx"
+            shift
+            ;;
+        --flow-control-tx)
+            shift
+            flow_control_tx=$1
+            echo "flow_control_tx=$flow_control_tx"
+            shift
+            ;;
+        --flow-control-rx)
+            shift
+            flow_control_rx=$1
+            echo "flow_control_rx=$flow_control_rx"
+            shift
+            ;;
+        --lro)
+            shift
+            lro=$1
+            echo "lro=$lro"
+            shift
+            ;;
+        --queues)
+            shift
+            queues=$1
+            echo "queues=$queues"
+            shift
+            ;;
+        --irqbalance)
+            shift
+            irqbalance=$1
+            echo "irqbalance=$irqbalance"
+            shift
+            ;;
+        --tx-usecs)
+            shift
+            tx_usecs=$1
+            echo "tx_usecs=$tx_usecs"
+            shift
+            ;;
+        --rx-usecs)
+            shift
+            rx_usecs=$1
+            echo "rx_usecs=$rx_usecs"
+            shift
+            ;;
+        --txd)
+            shift
+            txd=$1
+            echo "txd=$txd"
+            shift
+            ;;
+        --rxd)
+            shift
+            rxd=$1
+            echo "rxd=$rxd"
+            shift
+            ;;
+        --priority)
+            shift
+            priority=$1
+            echo "priority=$priority"
+            prio="-F $priority"
+            shift
+            ;;
         --)
-            shift;
+            shift
             break
             ;;
         *)
-            exit_error "Invalid option: $1"
+             exit_error "Invalid option: $1"
     esac
 done
 
@@ -188,6 +326,79 @@ elif [ "${cpu_pin}" == "numa" ]; then
     exit_error "cannot determine numa node for interface '${ifname}' and cpu-pin is numa"
 fi
 
+
+# Interface tuning
+# Show original interface settings
+echo "$ifname original settings:"
+ethtool -c $ifname | grep -i adaptive
+ethtool -c $ifname | grep -i tx-usecs:
+ethtool -c $ifname | grep -i rx-usecs:
+ethtool -g $ifname | awk '/Current hardware settings:/{found=1} found && ($1=="RX:" || $1=="TX:") {print $0}'
+ethtool -k $ifname | grep -i large-receive-offload
+ethtool -a $ifname
+ethtool -l $ifname | awk '/Current hardware settings:/{found=1} found && ($1=="Combined:") {print $0}'
+
+# Save original settings before tuning
+if [ -n "$adaptive_rx" ]; then
+    _adaptive_rx="$(ethtool -c $ifname | grep -i adaptive | awk '{ print $3 '})"
+    ethtool -C $ifname adaptive-rx $adaptive_rx
+fi
+if [ -n "$adaptive_tx" ]; then
+    _adaptive_tx="$(ethtool -c $ifname | grep -i adaptive | awk '{ print $5 '})"
+    ethtool -C $ifname adaptive-tx $adaptive_tx
+fi
+if [ -n "$rx_usecs" ]; then
+    _tx_usecs="$(ethtool -c $ifname | grep -i tx-usecs: | awk '{  print $2 }')"
+    ethtool -C $ifname tx-usecs $rx_usecs
+fi
+if [ -n "$tx_usecs" ]; then
+    _rx_usecs="$(ethtool -c $ifname | grep -i rx-usecs: | awk '{  print $2 }')"
+    ethtool -C $ifname rx-usecs $tx_usecs
+fi
+if [ -n "$rxd" ]; then
+    _rxd="$(ethtool -g $ifname | awk '/Current hardware settings:/{found=1} found && ($1=="RX:") {print $2}')"
+    ethtool -G $ifname rx $rxd
+fi
+if [ -n "$txd" ]; then
+    _txd="$(ethtool -g $ifname | awk '/Current hardware settings:/{found=1} found && ($1=="TX:") {print $2}')"
+    ethtool -G $ifname tx $txd
+fi
+if [ -n "$lro" ]; then
+    _lro="$(ethtool -k $ifname | grep -i large-receive-offload | awk '{ print $2 }')"
+    ethtool -K $ifname lro $lro
+fi
+if [ -n "$flow_control_rx" ]; then
+    _flow_control_rx="$(ethtool -a $ifname | grep RX | awk '{ print $2 '})"
+    ethtool -A $ifname rx $flow_control_rx
+fi
+if [ -n "$flow_control_tx" ]; then
+    _flow_control_tx="$(ethtool -a $ifname | grep TX | awk '{ print $2 '})"
+    ethtool -A $ifname tx $flow_control_tx
+fi
+if [ -n "$queues" ]; then
+    if [ "$queues" != "default" ]; then
+	_queues="$(ethtool -l $ifname | awk '/Current hardware settings:/{found=1} found && ($1=="Combined:") {print $2}')"
+	if [ "$queues" == "match" ];then
+	    echo "Matching queues to uperf channels (threads=$nthreads)"
+	    ethtool -L $ifname combined $nthreads
+        else
+	    ethtool -L $ifname combined $queues
+        fi
+    fi
+fi
+
+# Show updated interface tuning settings
+echo "$ifname tuning settings:"
+ethtool -c $ifname | grep -i adaptive
+ethtool -c $ifname | grep -i tx-usecs:
+ethtool -c $ifname | grep -i rx-usecs:
+ethtool -g $ifname | awk '/Current hardware settings:/{found=1} found && ($1=="RX:" || $1=="TX:") {print $0}'
+ethtool -k $ifname | grep -i large-receive-offload
+ethtool -a $ifname
+ethtool -l $ifname | awk '/Current hardware settings:/{found=1} found && ($1=="Combined:") {print $0}'
+
+### End of interface tuning
+
 # These ports should come from the endpoint, but if for some
 # reason they don't the default port numbers are calculated
 # in this way:
@@ -223,19 +434,102 @@ cpu_pin_cmd=""
 case "${cpu_pin}" in
     "numa")
 	cpu_pin_cmd="taskset --cpu-list ${ifname_numa_node_cpus}"
+	irq_affinity=${ifname_numa_node_cpus}
 	;;
     "cpu")
 	cpu_pin_cmd="taskset --cpu-list ${cpu_pin_param}"
+	irq_affinity=${cpu_pin_param}
 	;;
 esac
 
-cmd+="${cpu_pin_cmd} uperf -R -m test.xml -P $control_port $uopts"
+# Interface tuning
+if [ -n "$adaptive_rx" ]; then
+    _adaptive_rx="$(ethtool -c $ifname | grep -i adaptive | awk '{ print $3 '})"
+    echo "ethtool -C $ifname adaptive-rx $_adaptive_rx" >> orig.conf
+    echo "ethtool -C $ifname adaptive-rx $adaptive_rx" >> new.conf
+fi
+if [ -n "$adaptive_tx" ]; then
+    _adaptive_tx="$(ethtool -c $ifname | grep -i adaptive | awk '{ print $5 '})"
+    echo "ethtool -C $ifname adaptive-tx $_adaptive_tx" >> orig.conf
+    echo "ethtool -C $ifname adaptive-tx $adaptive_tx" >> new.conf
+fi
+if [ -n "$rx_usecs" ]; then
+    _tx_usecs="$(ethtool -c $ifname | grep -i tx-usecs: | awk '{  print $2 }')"
+    echo "ethtool -C $ifname rx-usecs $_rx_usecs" >> orig.conf
+    echo "ethtool -C $ifname rx-usecs $rx_usecs" >> new.conf
+fi
+if [ -n "$tx_usecs" ]; then
+    _rx_usecs="$(ethtool -c $ifname | grep -i rx-usecs: | awk '{  print $2 }')"
+    echo "ethtool -C $ifname tx-usecs $_tx_usecs" >> orig.conf
+    echo "ethtool -C $ifname tx-usecs $tx_usecs" >> new.conf
+fi
+if [ -n "$rxd" ]; then
+    _rxd="$(ethtool -g $ifname | awk '/Current hardware settings:/{found=1} found && ($1=="RX:") {print $2}')"
+    echo "ethtool -G $ifname rx $_rxd" >> orig.conf
+    echo "ethtool -G $ifname rx $rxd" >> new.conf
+fi
+if [ -n "$txd" ]; then
+    _txd="$(ethtool -g $ifname | awk '/Current hardware settings:/{found=1} found && ($1=="TX:") {print $2}')"
+    echo "ethtool -G $ifname tx $_txd" >> orig.conf
+    echo "ethtool -G $ifname tx $txd" >> new.conf
+fi
+if [ -n "$lro" ]; then
+    _lro="$(ethtool -k $ifname | grep -i large-receive-offload | awk '{ print $2 }')"
+    echo "ethtool -K $ifname lro $_lro" >> orig.conf
+    echo "ethtool -K $ifname lro $lro" >> new.conf
+fi
+if [ -n "$flow_control_rx" ]; then
+    _flow_control_rx="$(ethtool -a $ifname | grep RX | awk '{ print $2 '})"
+    echo "ethtool -A $ifname rx $_flow_control_rx" >> orig.conf
+    echo "ethtool -A $ifname rx $flow_control_rx" >> new.conf
+fi
+if [ -n "$flow_control_tx" ]; then
+    _flow_control_tx="$(ethtool -a $ifname | grep TX | awk '{ print $2 '})"
+    echo "ethtool -A $ifname tx $_flow_control_tx" >> orig.conf
+    echo "ethtool -A $ifname tx $flow_control_tx" >> new.conf
+fi
+if [ -n "$queues" ]; then
+    if [ "$queues" != "default" ]; then
+        _queues="$(ethtool -l $ifname | awk '/Current hardware settings:/{found=1} found && ($1=="Combined:") {print $2}')"
+        echo "ethtool -L $ifname combined $_queues" >> orig.conf
+        if [ "$queues" == "match" ];then
+            echo "ethtool -L $ifname combined $nthreads" >> new.conf
+        else
+            ethtool -L $ifname combined $queues
+            echo "ethtool -L $ifname combined $queues" >> new.conf
+        fi
+    fi
+fi
+
+# IRQ affinity
+if [ -n "$irq_affinity" ]; then
+    for i in $(grep $ifname /proc/interrupts | awk '{ print $1 }' | sed 's/://'); do
+	_irq_affinity="$( cat /proc/irq/$i/smp_affinity_list )"
+        echo "echo $_irq_affinity > /proc/irq/$i/smp_affinity_list" >> orig.conf
+        echo "echo $irq_affinity > /proc/irq/$i/smp_affinity_list" >> new.conf
+    done
+fi
+
+# IRQ balance
+###### not implemented (chroot)
+
+# NIC Statistics
+echo "ethtool -S $ifname" >> new.conf
+echo "ethtool -S $ifname" >> orig.conf
+
+# Apply new settings
+source new.conf
+
+cmd+="${cpu_pin_cmd} uperf $main_thread_cpu $prio $raw_ts -m test.xml -P $control_port $uopts"
 
 # strip ',' from the passthru options 
 passthru_opts=$(echo "$pt_opts" | sed 's/,/ /g')
 options+=" $passthru_opts"
 echo "passthu options: $options"
 cmd+="$options"
+
+echo "uperf help"
+uperf help
 
 echo "going to run: ${cmd}"
 nthreads=$nthreads \
@@ -256,3 +550,6 @@ if [ ${uperf_rc} -gt 0 -o -z "${uperf_errors}" ]; then
     fi
     exit_error "$uperf_errors"
 fi
+
+# Restore original/previous settings
+source orig.conf

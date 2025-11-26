@@ -36,3 +36,6 @@ else
     echo "LS: `/bin/ls`"
     exit 1
 fi
+
+# Restore original/previous settings
+source orig.conf

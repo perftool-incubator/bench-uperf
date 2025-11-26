@@ -8,7 +8,8 @@
 	    {
 	        "name": "default",
 	        "requirements": [
-                "uperf_src"
+                        "deps",
+                        "uperf_fork"
 	        ]
 	    }
     ],
@@ -31,6 +32,27 @@
 		            ]
                 }
 	        }
-        }
+	    },
+	    {
+	        "name": "uperf_fork",
+	        "type": "manual",
+	        "manual_info": {
+		        "commands": [
+				"git clone https://github.com/rafaelfolco/uperf.git /root/uperf",
+				"cd /root/uperf && git checkout master",
+				"cd /root/uperf && autoreconf --install && ./configure && make install",
+				"cd /root/uperf && ldconfig && /usr/local/bin/uperf -V"
+		        ]
+	        }
+            },
+            {
+                "name": "deps",
+                "type": "distro",
+                "distro_info": {
+                    "packages": [
+		        "lksctp-tools-devel"
+		    ]
+                }
+            }
     ]
 }

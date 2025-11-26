@@ -9,6 +9,27 @@
         ]
     },
     "validations": {
+        "yesno": {
+          "description": "yes|no",
+          "args": [
+            "history",
+            "histogram",
+            "quiet"
+          ],
+          "vals": "yes|no"
+        },
+        "on-off": {
+          "description": "On/Off settings",
+          "args": [
+            "adaptive-rx",
+            "adaptive-tx",
+            "lro",
+            "flow-control-rx",
+            "flow-control-tx",
+            "irqbalance"
+          ],
+          "vals": "on|off"
+        },
         "test-types": {
             "description": "all possible test-types",
             "args": [ "test-type" ],
@@ -24,9 +45,19 @@
             "args": [ "ipv" ],
             "vals": "^4$|^6$"
         },
+        "divisible-by-1000": {
+            "description": "a number divisible by 1000",
+            "args": [ "bucket-length", "max-bucket" ],
+            "vals": "^(0|[1-9][0-9]*000)$"
+        },
+        "queues": {
+            "description": "Number of queues used by the adapter",
+            "args": [ "queues" ],
+            "vals": "default|match|[1-9][0-9]*"
+        },
         "positive_integer": {
             "description": "a whole number greater than 0",
-            "args": [ "wsize", "rsize", "nthreads", "duration" ],
+            "args": [ "wsize", "rsize", "nthreads", "duration", "rx-usecs", "tx-usecs", "rxd", "txd" ],
             "vals": "[1-9][0-9]*"
         },
         "positive_float": {
@@ -53,6 +84,16 @@
             "description": "valid cpu pinning modes",
             "args": [ "cpu-pin" ],
             "vals": "^numa$|^cpu:(([0-9]*)(-[1-9][0-9]*)?)(,(([1-9][0-9]*)(-[1-9][0-9]*)?))*$"
+        },
+        "priority": {
+            "description": "fifo priority for uperf threads",
+            "args": [ "priority" ],
+            "vals": "^[1-9][0-9]?$"
+        },
+        "main-thread": {
+            "description": "cpu pin for uperf main thread",
+            "args": [ "main-thread" ],
+            "vals": "^[1-9][0-9]?$"
         }
     }
 }
