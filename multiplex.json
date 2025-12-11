@@ -82,7 +82,7 @@
         },
         "cpu-pinning": {
             "description": "valid cpu pinning modes",
-            "args": [ "cpu-pin" ],
+            "args": [ "cpu-pin", "irq-pin" ],
             "vals": "^numa$|^cpu:(([0-9]*)(-[1-9][0-9]*)?)(,(([1-9][0-9]*)(-[1-9][0-9]*)?))*$"
         },
         "priority": {

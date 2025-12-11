@@ -36,12 +36,13 @@ queues="default"
 irqbalance=""
 main_thread=""
 priority=""
+irq_pin=""
 
 longopts="ipv:,test-type:,protocol:,rsize:,wsize:,nthreads:,remotehost:,
 duration:,cpu-pin:,think:,passthru:,history:,histogram:,bucket-length:,
 max-bucket:,adaptive-tx:,adaptive-rx:,lro:,tx-usecs:,rx-usecs:,rxd:,txd:,
 flow-control-rx:,flow-control-tx:,queues:,priority:,irqbalance:,main-thread:,
-quiet:"
+quiet:,irq-pin:"
 opts=$(getopt -q -o "" --longoptions "$longopts" -n "getopt.sh" -- "$@");
 if [ $? -ne 0 ]; then
     exit_error "Unrecognized option specified"
@@ -61,6 +62,12 @@ while true; do
             shift
             ipv="$1"
             echo "ipv=$ipv"
+            shift
+            ;;
+        --irq-pin)
+            shift
+            irq_pin=$1
+            echo "irq_pin=${irq_pin}"
             shift
             ;;
         --cpu-pin)
@@ -321,83 +328,16 @@ if [ -e /sys/class/net/${ifname}/device/numa_node ]; then
     if [ $ifname_numa_node == "-1" ] && [ "${cpu_pin}" == "numa" ]; then
         exit_error "PCIe has no NUMA locality, but cpu-pin is numa"
     fi
-    ifname_numa_node_cpus=$(cat /sys/devices/system/node/node${ifname_numa_node}/cpulist)
-elif [ "${cpu_pin}" == "numa" ]; then
-    exit_error "cannot determine numa node for interface '${ifname}' and cpu-pin is numa"
-fi
-
-
-# Interface tuning
-# Show original interface settings
-echo "$ifname original settings:"
-ethtool -c $ifname | grep -i adaptive
-ethtool -c $ifname | grep -i tx-usecs:
-ethtool -c $ifname | grep -i rx-usecs:
-ethtool -g $ifname | awk '/Current hardware settings:/{found=1} found && ($1=="RX:" || $1=="TX:") {print $0}'
-ethtool -k $ifname | grep -i large-receive-offload
-ethtool -a $ifname
-ethtool -l $ifname | awk '/Current hardware settings:/{found=1} found && ($1=="Combined:") {print $0}'
-
-# Save original settings before tuning
-if [ -n "$adaptive_rx" ]; then
-    _adaptive_rx="$(ethtool -c $ifname | grep -i adaptive | awk '{ print $3 '})"
-    ethtool -C $ifname adaptive-rx $adaptive_rx
-fi
-if [ -n "$adaptive_tx" ]; then
-    _adaptive_tx="$(ethtool -c $ifname | grep -i adaptive | awk '{ print $5 '})"
-    ethtool -C $ifname adaptive-tx $adaptive_tx
-fi
-if [ -n "$rx_usecs" ]; then
-    _tx_usecs="$(ethtool -c $ifname | grep -i tx-usecs: | awk '{  print $2 }')"
-    ethtool -C $ifname tx-usecs $rx_usecs
-fi
-if [ -n "$tx_usecs" ]; then
-    _rx_usecs="$(ethtool -c $ifname | grep -i rx-usecs: | awk '{  print $2 }')"
-    ethtool -C $ifname rx-usecs $tx_usecs
-fi
-if [ -n "$rxd" ]; then
-    _rxd="$(ethtool -g $ifname | awk '/Current hardware settings:/{found=1} found && ($1=="RX:") {print $2}')"
-    ethtool -G $ifname rx $rxd
-fi
-if [ -n "$txd" ]; then
-    _txd="$(ethtool -g $ifname | awk '/Current hardware settings:/{found=1} found && ($1=="TX:") {print $2}')"
-    ethtool -G $ifname tx $txd
-fi
-if [ -n "$lro" ]; then
-    _lro="$(ethtool -k $ifname | grep -i large-receive-offload | awk '{ print $2 }')"
-    ethtool -K $ifname lro $lro
-fi
-if [ -n "$flow_control_rx" ]; then
-    _flow_control_rx="$(ethtool -a $ifname | grep RX | awk '{ print $2 '})"
-    ethtool -A $ifname rx $flow_control_rx
-fi
-if [ -n "$flow_control_tx" ]; then
-    _flow_control_tx="$(ethtool -a $ifname | grep TX | awk '{ print $2 '})"
-    ethtool -A $ifname tx $flow_control_tx
-fi
-if [ -n "$queues" ]; then
-    if [ "$queues" != "default" ]; then
-	_queues="$(ethtool -l $ifname | awk '/Current hardware settings:/{found=1} found && ($1=="Combined:") {print $2}')"
-	if [ "$queues" == "match" ];then
-	    echo "Matching queues to uperf channels (threads=$nthreads)"
-	    ethtool -L $ifname combined $nthreads
-        else
-	    ethtool -L $ifname combined $queues
-        fi
+    if [ $ifname_numa_node == "-1" ] && [ "${irq_pin}" == "numa" ]; then
+        exit_error "PCIe has no NUMA locality, but irq-pin is numa"
     fi
+    ifname_numa_node_cpus=$(cat /sys/devices/system/node/node${ifname_numa_node}/cpulist)
+elif [ "${cpu_pin}" == "numa" ] || [ "${irq_pin}" == "numa" ]; then
+    exit_error "cannot determine numa node for interface '${ifname}' and cpu/irq-pin is numa"
 fi
 
-# Show updated interface tuning settings
-echo "$ifname tuning settings:"
-ethtool -c $ifname | grep -i adaptive
-ethtool -c $ifname | grep -i tx-usecs:
-ethtool -c $ifname | grep -i rx-usecs:
-ethtool -g $ifname | awk '/Current hardware settings:/{found=1} found && ($1=="RX:" || $1=="TX:") {print $0}'
-ethtool -k $ifname | grep -i large-receive-offload
-ethtool -a $ifname
-ethtool -l $ifname | awk '/Current hardware settings:/{found=1} found && ($1=="Combined:") {print $0}'
-
-### End of interface tuning
+# NIC Statistics - last step in the new.conf (before running tests)
+echo "ethtool -S $ifname" >> new.conf
 
 # These ports should come from the endpoint, but if for some
 # reason they don't the default port numbers are calculated
@@ -434,13 +374,33 @@ cpu_pin_cmd=""
 case "${cpu_pin}" in
     "numa")
 	cpu_pin_cmd="taskset --cpu-list ${ifname_numa_node_cpus}"
-	irq_affinity=${ifname_numa_node_cpus}
 	;;
     "cpu")
 	cpu_pin_cmd="taskset --cpu-list ${cpu_pin_param}"
-	irq_affinity=${cpu_pin_param}
 	;;
 esac
+
+if echo "${cpu_pin}" | grep -q "^cpu:"; then
+    cpu_pin_param=$(echo "${cpu_pin}" | awk -F: '{ print $2 }')
+    cpu_pin=$(echo "${cpu_pin}" | awk -F: '{ print $1 }')
+fi
+
+irq_pin_mode=$(echo "${irq_pin}" | awk -F: '{ print $1 }')
+case "${irq_pin_mode}" in
+    "none")
+	unset irq_affinity
+	;;
+    "default")
+	irq_affinity=$( taskset -cp 1 )
+	;;
+    "numa")
+	irq_affinity=${ifname_numa_node_cpus}
+	;;
+    "cpu")
+	irq_affinity=$(echo "${irq_pin}" | awk -F: '{ print $2 }')
+	;;
+esac
+echo "IRQ Affinity: $irqaffinity"
 
 # Interface tuning
 if [ -n "$adaptive_rx" ]; then
@@ -502,23 +462,26 @@ if [ -n "$queues" ]; then
 fi
 
 # IRQ affinity
-if [ -n "$irq_affinity" ]; then
+if [ -n "${irq_affinity}" ]; then
+    tuna show_threads -c ${irq_affinity}
+    tuna show_irqs -q *${ifname}*
     for i in $(grep $ifname /proc/interrupts | awk '{ print $1 }' | sed 's/://'); do
-	_irq_affinity="$( cat /proc/irq/$i/smp_affinity_list )"
+        _irq_affinity="$( cat /proc/irq/$i/smp_affinity_list )"
+        grep . /proc/irq/$i/smp_affinity_list
         echo "echo $_irq_affinity > /proc/irq/$i/smp_affinity_list" >> orig.conf
-        echo "echo $irq_affinity > /proc/irq/$i/smp_affinity_list" >> new.conf
     done
+    tuna isolate --cpus ${irq_affinity}
+    tuna move -q *${ifname}* -c ${irq_affinity}
+    tuna show_threads -c ${irq_affinity}
+    tuna show_irqs -q *${ifname}*
 fi
 
-# IRQ balance
-###### not implemented (chroot)
-
-# NIC Statistics
-echo "ethtool -S $ifname" >> new.conf
+# NIC stats - first place in the orig.conf (after running tests)
 echo "ethtool -S $ifname" >> orig.conf
 
 # Apply new settings
 source new.conf
+
 
 cmd+="${cpu_pin_cmd} uperf $main_thread_cpu $prio $raw_ts -m test.xml -P $control_port $uopts"
 

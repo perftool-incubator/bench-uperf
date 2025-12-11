@@ -13,11 +13,12 @@ control_port=""
 data_port=""
 ifname=""
 cpu_pin=""
+irq_pin=""
 ipv="4"
 
 longopts="ipv:,ifname:,cpu-pin:,passthru:,adaptive-rx:,adaptive-tx:,
 flow-control-tx:,flow-control-rx:,rxd:,txd:,lro:,queues:,queues:,tx-usecs:,
-rx-usecs:,priority:,main-thread:,irqbalance:"
+rx-usecs:,priority:,main-thread:,irqbalance:,irq-pin:"
 opts=$(getopt -q -o "" --longoptions "$longopts" -n "getopt.sh" -- "$@");
 if [ $? -ne 0 ]; then
     exit_error  "Unrecognized option specified"
@@ -25,6 +26,12 @@ fi
 eval set -- "$opts";
 while true; do
     case "$1" in
+        --irq-pin)
+            shift
+            irq_pin=$1
+            echo "irq_pin=${irq_pin}"
+            shift
+            ;;
         --cpu-pin)
             shift;
             cpu_pin=$1
@@ -155,6 +162,26 @@ case "${cpu_pin}" in
 	;;
 esac
 
+irq_pin_mode=$(echo "${irq_pin}" | awk -F: '{ print $1 }')
+case "${irq_pin_mode}" in
+    "none")
+       unset irq_affinity
+       ;;
+    "default")
+       irq_affinity=$( taskset -cp 1 )
+       ;;
+    "numa")
+       irq_affinity=${ifname_numa_node_cpus}
+       ;;
+    "cpu")
+       irq_affinity=$(echo "${irq_pin}" | awk -F: '{ print $2 }')
+       ;;
+esac
+echo "IRQ Affinity: $irqaffinity"
+
+# NIC Statistics - last step in the new.conf (before running tests)
+echo "ethtool -S $ifname" >> new.conf
+
 # A benchmark server can provide both an IP and ports to the client.
 # The server must package these in a JSON, which will be sent to
 # the endpoint.  The endpoint may make adjustments to the IP and
@@ -281,11 +308,15 @@ cpu_pin_cmd=""
 case "${cpu_pin}" in
     "numa")
 	cpu_pin_cmd="taskset --cpu-list ${ifname_numa_node_cpus}"
-	irq_affinity=${ifname_numa_node_cpus}
+	if [ "${irq_pin}" == "yes" ]; then
+	    irq_affinity=${ifname_numa_node_cpus}
+	fi
 	;;
     "cpu")
 	cpu_pin_cmd="taskset --cpu-list ${cpu_pin_param}"
-	irq_affinity=${cpu_pin_param}
+	if [ "${irq_pin}" == "yes" ]; then
+	    irq_affinity=${cpu_pin_param}
+	fi
 	;;
 esac
 
@@ -349,19 +380,21 @@ if [ -n "$queues" ]; then
 fi
 
 # IRQ affinity
-if [ -n "$irq_affinity" ]; then
+if [ -n "${irq_affinity}" ]; then
+    tuna show_threads -c ${irq_affinity}
+    tuna show_irqs -q *${ifname}*
     for i in $(grep $ifname /proc/interrupts | awk '{ print $1 }' | sed 's/://'); do
-	_irq_affinity="$( cat /proc/irq/$i/smp_affinity_list )"
+        _irq_affinity="$( cat /proc/irq/$i/smp_affinity_list )"
+        grep . /proc/irq/$i/smp_affinity_list
         echo "echo $_irq_affinity > /proc/irq/$i/smp_affinity_list" >> orig.conf
-        echo "echo $irq_affinity > /proc/irq/$i/smp_affinity_list" >> new.conf
     done
+    tuna isolate --cpus ${irq_affinity}
+    tuna move -q *${ifname}* -c ${irq_affinity}
+    tuna show_threads -c ${irq_affinity}
+    tuna show_irqs -q *${ifname}*
 fi
 
-# IRQ balance
-# ### not implemented (chroot)
-
-# NIC Statistics
-echo "ethtool -S $ifname" >> new.conf
+# NIC stats - first place in the orig.conf (after running tests)
 echo "ethtool -S $ifname" >> orig.conf
 
 # Apply new settings
