@@ -395,7 +395,7 @@ case "${irq_pin_mode}" in
 	unset irq_affinity
 	;;
     "default")
-	irq_affinity=$( taskset -cp 1 )
+	irq_affinity=$(taskset -cp 1 | awk -F: '{ print $2 }' | tr -d '[:space:]')
 	;;
     "numa")
 	irq_affinity=${ifname_numa_node_cpus}

@@ -88,7 +88,7 @@
         "priority": {
             "description": "fifo priority for uperf threads",
             "args": [ "priority" ],
-            "vals": "^[1-9][0-9]?$"
+            "vals": "^0$|^[1-9][0-9]?$"
         },
         "main-thread": {
             "description": "cpu pin for uperf main thread",
