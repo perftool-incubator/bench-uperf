@@ -241,7 +241,7 @@ while true; do
         --priority)
             shift
 	    if [ "$1" == "0" ]; then
-		echo "Priority 0: SCHED_OTHER"
+                echo "priority=0 (SCHED_OTHER)"
 	    else
                 priority=$1
                 echo "priority=$priority"
@@ -378,16 +378,13 @@ cpu_pin_cmd=""
 case "${cpu_pin}" in
     "numa")
 	cpu_pin_cmd="taskset --cpu-list ${ifname_numa_node_cpus}"
+        echo "CPU Pinning: NUMA [ $ifname_numa_node_cpus ]"
 	;;
     "cpu")
 	cpu_pin_cmd="taskset --cpu-list ${cpu_pin_param}"
+        echo "CPU Pinning: CPUs [ $cpu_pin_param ]"
 	;;
 esac
-
-if echo "${cpu_pin}" | grep -q "^cpu:"; then
-    cpu_pin_param=$(echo "${cpu_pin}" | awk -F: '{ print $2 }')
-    cpu_pin=$(echo "${cpu_pin}" | awk -F: '{ print $1 }')
-fi
 
 irq_pin_mode=$(echo "${irq_pin}" | awk -F: '{ print $1 }')
 case "${irq_pin_mode}" in
@@ -395,7 +392,7 @@ case "${irq_pin_mode}" in
 	unset irq_affinity
 	;;
     "default")
-	irq_affinity=$(taskset -cp 1 | awk -F: '{ print $2 }' | tr -d '[:space:]')
+	irq_affinity=${HK_CPUS}
 	;;
     "numa")
 	irq_affinity=${ifname_numa_node_cpus}
@@ -404,7 +401,7 @@ case "${irq_pin_mode}" in
 	irq_affinity=$(echo "${irq_pin}" | awk -F: '{ print $2 }')
 	;;
 esac
-echo "IRQ Affinity: $irqaffinity"
+echo "IRQ Affinity: [ $irq_affinity ] : $irq_pin_mode "
 
 # Interface tuning
 if [ -n "$adaptive_rx" ]; then
@@ -465,6 +462,7 @@ if [ -n "$queues" ]; then
     fi
 fi
 
+set -x
 # IRQ affinity
 if [ -n "${irq_affinity}" ]; then
     tuna show_threads -c ${irq_affinity}
@@ -485,7 +483,7 @@ echo "ethtool -S $ifname" >> orig.conf
 
 # Apply new settings
 source new.conf
-
+set +x
 
 cmd+="${cpu_pin_cmd} uperf $main_thread_cpu $prio $raw_ts -m test.xml -P $control_port $uopts"
 
