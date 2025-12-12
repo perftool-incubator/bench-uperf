@@ -240,9 +240,13 @@ while true; do
             ;;
         --priority)
             shift
-            priority=$1
-            echo "priority=$priority"
-            prio="-F $priority"
+	    if [ "$1" == "0" ]; then
+		echo "Priority 0: SCHED_OTHER"
+	    else
+                priority=$1
+                echo "priority=$priority"
+                prio="-F $priority"
+	    fi
             shift
             ;;
         --)
