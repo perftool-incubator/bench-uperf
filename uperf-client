@@ -35,6 +35,7 @@ tx_usecs=""
 queues="default"
 irqbalance=""
 main_thread=""
+worker_thread=""
 priority=""
 irq_pin=""
 
@@ -42,7 +43,7 @@ longopts="ipv:,test-type:,protocol:,rsize:,wsize:,nthreads:,remotehost:,
 duration:,cpu-pin:,think:,passthru:,history:,histogram:,bucket-length:,
 max-bucket:,adaptive-tx:,adaptive-rx:,lro:,tx-usecs:,rx-usecs:,rxd:,txd:,
 flow-control-rx:,flow-control-tx:,queues:,priority:,irqbalance:,main-thread:,
-quiet:,irq-pin:"
+quiet:,irq-pin:,worker-thread:"
 opts=$(getopt -q -o "" --longoptions "$longopts" -n "getopt.sh" -- "$@");
 if [ $? -ne 0 ]; then
     exit_error "Unrecognized option specified"
@@ -131,6 +132,13 @@ while true; do
             shift
             pt_opts=$1
             echo "pt_opts=$pt_opts"
+            shift
+            ;;
+        --worker-thread)
+            shift
+            worker_thread=$1
+            echo "worker-thread=$worker_thread"
+            worker_thread_cpu="-W $worker_thread"
             shift
             ;;
         --main-thread)
@@ -481,11 +489,15 @@ fi
 # NIC stats - first place in the orig.conf (after running tests)
 echo "ethtool -S $ifname" >> orig.conf
 
+echo "grep ${ifname} /proc/interrupts" >> new.conf
+
 # Apply new settings
 source new.conf
 set +x
 
-cmd+="${cpu_pin_cmd} uperf $main_thread_cpu $prio $raw_ts -m test.xml -P $control_port $uopts"
+cmd+="${cpu_pin_cmd} uperf
+ $main_thread_cpu $worker_thread_cpu
+ $prio $raw_ts -m test.xml -P $control_port $uopts"
 
 # strip ',' from the passthru options 
 passthru_opts=$(echo "$pt_opts" | sed 's/,/ /g')
@@ -515,6 +527,8 @@ if [ ${uperf_rc} -gt 0 -o -z "${uperf_errors}" ]; then
     fi
     exit_error "$uperf_errors"
 fi
+
+echo "grep ${ifname} /proc/interrupts" >> orig.conf
 
 # Restore original/previous settings
 source orig.conf

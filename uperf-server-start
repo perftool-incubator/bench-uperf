@@ -18,7 +18,7 @@ ipv="4"
 
 longopts="ipv:,ifname:,cpu-pin:,passthru:,adaptive-rx:,adaptive-tx:,
 flow-control-tx:,flow-control-rx:,rxd:,txd:,lro:,queues:,queues:,tx-usecs:,
-rx-usecs:,priority:,main-thread:,irqbalance:,irq-pin:"
+rx-usecs:,priority:,main-thread:,worker-thread:,irqbalance:,irq-pin:"
 opts=$(getopt -q -o "" --longoptions "$longopts" -n "getopt.sh" -- "$@");
 if [ $? -ne 0 ]; then
     exit_error  "Unrecognized option specified"
@@ -43,6 +43,13 @@ while true; do
 	    main_thread=$1
 	    echo "main-thread=$main_thread"
             main_thread_cpu="-M $main_thread"
+	    shift
+	    ;;
+	--worker-thread)
+	    shift
+	    worker_thread=$1
+	    echo "worker-thread=$worker_thread"
+            worker_thread_cpu="-W $worker_thread"
 	    shift
 	    ;;
         --ipv)
@@ -398,11 +405,14 @@ fi
 # NIC stats - first place in the orig.conf (after running tests)
 echo "ethtool -S $ifname" >> orig.conf
 
+echo "grep ${ifname} /proc/interrupts" >> new.conf
+echo "grep ${ifname} /proc/interrupts" >> orig.conf
 # Apply new settings
 source new.conf
 set +x
 
-cmd="${cpu_pin_cmd} uperf -s -P $control_port $prio $main_thread_cpu"
+cmd="${cpu_pin_cmd} uperf
+ -s -P $control_port $prio $main_thread_cpu $worker_thread_cpu"
 
 # strip ',' from the passthru options 
 passthru_opts=$(echo "$pt_opts" | sed 's/,/ /g')

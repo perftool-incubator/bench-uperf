@@ -90,9 +90,9 @@
             "args": [ "priority" ],
             "vals": "^0$|^[1-9][0-9]?$"
         },
-        "main-thread": {
-            "description": "cpu pin for uperf main thread",
-            "args": [ "main-thread" ],
+        "cpu-affinity": {
+            "description": "cpu pin for uperf",
+            "args": [ "main-thread", "worker-thread" ],
             "vals": "^[1-9][0-9]?$"
         }
     }
