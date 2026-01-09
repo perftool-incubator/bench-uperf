@@ -57,8 +57,13 @@
         },
         "positive_integer": {
             "description": "a whole number greater than 0",
-            "args": [ "wsize", "rsize", "nthreads", "duration", "rx-usecs", "tx-usecs", "rxd", "txd" ],
+            "args": [ "wsize", "rsize", "nthreads", "duration", "rxd", "txd" ],
             "vals": "[1-9][0-9]*"
+        },
+        "zero_or_above": {
+            "description": "a whole number greater than or equal 0",
+            "args": [ "rx-usecs", "tx-usecs" ],
+            "vals": "^0$|[1-9][0-9]*"
         },
         "positive_float": {
             "description": "a floating point number greater than 0",

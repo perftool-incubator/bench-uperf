@@ -173,9 +173,6 @@ case "${cpu_pin}" in
 	;;
 esac
 
-# NIC Statistics - last step in the new.conf (before running tests)
-echo "ethtool -S $ifname" >> new.conf
-
 # A benchmark server can provide both an IP and ports to the client.
 # The server must package these in a JSON, which will be sent to
 # the endpoint.  The endpoint may make adjustments to the IP and
@@ -339,12 +336,12 @@ if [ -n "$adaptive_tx" ]; then
     echo "ethtool -C $ifname adaptive-tx $adaptive_tx" >> new.conf
 fi
 if [ -n "$rx_usecs" ]; then
-    _tx_usecs="$(ethtool -c $ifname | grep -i tx-usecs: | awk '{  print $2 }')"
+    _rx_usecs="$(ethtool -c $ifname | grep -i rx-usecs: | awk '{  print $2 }')"
     echo "ethtool -C $ifname rx-usecs $_rx_usecs" >> orig.conf
     echo "ethtool -C $ifname rx-usecs $rx_usecs" >> new.conf
 fi
 if [ -n "$tx_usecs" ]; then
-    _rx_usecs="$(ethtool -c $ifname | grep -i rx-usecs: | awk '{  print $2 }')"
+    _tx_usecs="$(ethtool -c $ifname | grep -i tx-usecs: | awk '{  print $2 }')"
     echo "ethtool -C $ifname tx-usecs $_tx_usecs" >> orig.conf
     echo "ethtool -C $ifname tx-usecs $tx_usecs" >> new.conf
 fi
@@ -386,9 +383,13 @@ if [ -n "$queues" ]; then
     fi
 fi
 
-set -x
+
 # IRQ affinity
 if [ -n "${irq_affinity}" ]; then
+    echo
+    echo "IRQ AFFINITY (original)"
+    echo "#######################"
+    echo
     tuna show_threads -c ${irq_affinity}
     tuna show_irqs -q *${ifname}*
     for i in $(grep $ifname /proc/interrupts | awk '{ print $1 }' | sed 's/://'); do
@@ -396,18 +397,36 @@ if [ -n "${irq_affinity}" ]; then
         grep . /proc/irq/$i/smp_affinity_list
         echo "echo $_irq_affinity > /proc/irq/$i/smp_affinity_list" >> orig.conf
     done
+    echo
+    echo "IRQ AFFINITY (new)"
+    echo "#######################"
+    echo
     tuna isolate --cpus ${irq_affinity}
     tuna move -q *${ifname}* -c ${irq_affinity}
     tuna show_threads -c ${irq_affinity}
     tuna show_irqs -q *${ifname}*
 fi
 
-# NIC stats - first place in the orig.conf (after running tests)
+# NIC Statistics (before/after running tests)
+echo "ethtool -S $ifname" >> new.conf
 echo "ethtool -S $ifname" >> orig.conf
 
 echo "grep ${ifname} /proc/interrupts" >> new.conf
 echo "grep ${ifname} /proc/interrupts" >> orig.conf
+
+echo "NIC Settings"
+echo "############"
+for arg in a c g k l; do
+    echo "ethtool -${arg} $ifname" >> new.conf
+    echo "ethtool -${arg} $ifname" >> orig.conf
+done
+
 # Apply new settings
+echo
+echo "Apply new.conf"
+echo "##############"
+echo
+set -x
 source new.conf
 set +x
 
@@ -423,6 +442,15 @@ cmd+="$options"
 
 echo "going to run: $cmd"
 export MALLOC_CHECK_=2
+
+date +%s.%N >begin.txt
+
+echo
+echo "==============================================="
+echo "                  SERVER START                 "
+echo "==============================================="
+echo
+
 $cmd 2>&1 >uperf-server-start.txt &
 pid=$!
 echo $pid >uperf-server.pid
