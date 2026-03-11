@@ -97,8 +97,13 @@
         },
         "cpu-affinity": {
             "description": "cpu pin for uperf",
-            "args": [ "main-thread", "worker-thread" ],
+            "args": [ "main-thread" ],
             "vals": "^[1-9][0-9]?$"
+        },
+        "cpu-range": {
+            "description": "cpu range for uperf",
+            "args": [ "worker-thread" ],
+            "vals": "^[1-9][0-9]?(-[1-9][0-9]?)?(,[1-9][0-9]?(-[1-9][0-9]?)?)*$"
         }
     }
 }
