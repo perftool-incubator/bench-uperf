@@ -91,8 +91,8 @@
             "vals": "^none$|^default$|^numa$|^cpu:(([0-9]*)(-[1-9][0-9]*)?)(,(([1-9][0-9]*)(-[1-9][0-9]*)?))*$"
         },
         "priority": {
-            "description": "fifo priority for uperf threads",
-            "args": [ "priority" ],
+            "description": "fifo priority for uperf threads and irq handlers",
+            "args": [ "priority", "irq-prio", "softirq-prio" ],
             "vals": "^0$|^[1-9][0-9]?$"
         },
         "cpu-affinity": {

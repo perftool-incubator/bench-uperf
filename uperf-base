@@ -1,3 +1,25 @@
 #!/bin/bash
 
 if ! source ${TOOLBOX_HOME}/bash/library/bench-base; then echo "ERROR: Could not source bench-base from \$TOOLBOX_HOME [${TOOLBOX_HOME}]"; exit 1; fi
+
+expand_cpus() {
+    local input=$1
+    local cpu_list=()
+    # Split by comma
+    IFS=',' read -ra PARTS <<< "$input"
+    for part in "${PARTS[@]}"; do
+        if [[ $part == *-* ]]; then
+            # Handle range (e.g., 5-8)
+            start=${part%-*}
+            end=${part#*-}
+            for ((i=start; i<=end; i++)); do
+                cpu_list+=("$i")
+            done
+        else
+            # Handle single CPU
+            cpu_list+=("$part")
+        fi
+    done
+    echo "${cpu_list[@]}"
+}
+

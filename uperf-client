@@ -43,7 +43,7 @@ longopts="ipv:,test-type:,protocol:,rsize:,wsize:,nthreads:,remotehost:,
 duration:,cpu-pin:,think:,passthru:,history:,histogram:,bucket-length:,
 max-bucket:,adaptive-tx:,adaptive-rx:,lro:,tx-usecs:,rx-usecs:,rxd:,txd:,
 flow-control-rx:,flow-control-tx:,queues:,priority:,irqbalance:,main-thread:,
-quiet:,irq-pin:,worker-thread:"
+quiet:,irq-pin:,worker-thread:,irq_prio:,softirq-prio:"
 opts=$(getopt -q -o "" --longoptions "$longopts" -n "getopt.sh" -- "$@");
 if [ $? -ne 0 ]; then
     exit_error "Unrecognized option specified"
@@ -244,6 +244,18 @@ while true; do
             shift
             rxd=$1
             echo "rxd=$rxd"
+            shift
+            ;;
+        --irq-prio)
+            shift
+            irq_prio=$1
+            echo "irq_prio=$irq_prio"
+            shift
+            ;;
+        --softirq-prio)
+            shift
+            softirq_prio=$1
+            echo "softirq_prio=$softirq_prio"
             shift
             ;;
         --priority)
@@ -488,11 +500,35 @@ if [ -n "${irq_affinity}" ]; then
     echo "IRQ AFFINITY (new)"
     echo "##################"
     echo
+    _vendor="$(/sys/class/net/$ifname/device/vendor)"
+    _pci=$(basename $(readlink /sys/class/net/$ifname/device))
+    if [[ "$_vendor" == "0x15b3" ]]; then
+        _irq_handler="mlx5_comp.*@pci:$_pci"
+    else
+        _irq_handler=$ifname
+    fi
+    _irqs=($(grep -E "$_irq_handler" /proc/interrupts | awk -F':' '{print $1}' | tr -d ' ' | sort -n))
+    _cpus=($(expand_cpus "$irq_affinity"))
 
-    tuna isolate --cpus ${irq_affinity}
-    tuna move -q *${ifname}* -c ${irq_affinity}
-    tuna show_threads -c ${irq_affinity}
-    tuna show_irqs -q *${ifname}*
+    for i in $(seq 0 $((nthreads - 1))); do
+        _irq=${_irqs[$i]}
+        _cpu=${_cpus[$i]}
+        if [[ -n "$_irq" && -n "$_cpu" ]]; then
+            tuna isolate --cpus ${_cpu}
+            echo "$_cpu" > "/proc/irq/$_irq/smp_affinity_list"
+            tuna show_threads -c ${_cpu}
+            cat /proc/irq/$_irq/smp_affinity_list
+	    if [[ -n "$irq_prio" ]]; then
+		chrt -f -p $irq_prio $(pgrep -f $_irq_handler)
+	    fi
+	    if [[ -n "$softirq_prio" ]]; then
+		chrt -f -p $softirq_prio $(pgrep -f softirqd/$_cpu)
+	    fi
+        else
+            echo "Warning: Invalid IRQ pinning (IRQ: $_irq, CPU: $_cpu)"
+        fi
+    done
+    tuna show_irqs -q *${_irq_handler}*
 fi
 
 # NIC Statistics (before/after running tests)
