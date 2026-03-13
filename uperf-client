@@ -500,9 +500,9 @@ if [ -n "${irq_affinity}" ]; then
     echo "IRQ AFFINITY (new)"
     echo "##################"
     echo
-    _vendor="$(/sys/class/net/$ifname/device/vendor)"
-    _pci=$(basename $(readlink /sys/class/net/$ifname/device))
-    if [[ "$_vendor" == "0x15b3" ]]; then
+    _vendor="$(grep "PCI_ID" /sys/class/net/$ifname/device/uevent | cut -d'=' -f2 | cut -d':' -f1)"
+    _pci=$(bash -c "basename \$(readlink /sys/class/net/$IFNAME/device)")
+    if [[ "$_vendor" == "15B3" ]]; then
         _irq_handler="mlx5_comp.*@pci:$_pci"
     else
         _irq_handler=$ifname
