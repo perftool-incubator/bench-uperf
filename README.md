@@ -1,5 +1,7 @@
 # bench-uperf
-Helper scripts to aid the execution and post-processing of uperf network performance tool.
+[![CI Actions Status](https://github.com/perftool-incubator/bench-uperf/workflows/crucible-ci/badge.svg)](https://github.com/perftool-incubator/bench-uperf/actions)
+
+Scripts and configuration to run the [uperf](http://uperf.org/) network performance benchmark within the [crucible](https://github.com/perftool-incubator/crucible) performance testing framework.
 
 ## Scripts
 
