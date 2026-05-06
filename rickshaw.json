@@ -6,7 +6,7 @@
     },
     "benchmark": "uperf",
     "controller": {
-        "post-script": "%bench-dir%uperf-post-process"
+        "post-script": "%bench-dir%uperf-post-process.py"
     },
     "client": {
         "files-from-controller": [
