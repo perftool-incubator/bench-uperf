@@ -5,7 +5,7 @@ Scripts and configuration to run the uperf network performance benchmark within 
 
 ## Languages
 - Bash: client, server, and runtime scripts
-- Perl: `uperf-post-process`
+- Python: `uperf-post-process.py`
 
 ## Key Files
 | File | Purpose |
@@ -21,4 +21,4 @@ Scripts and configuration to run the uperf network performance benchmark within 
 
 ## Conventions
 - Primary branch is `master`
-- Standard Bash/Perl modelines and 4-space indentation
+- Standard Bash modelines and 4-space indentation
