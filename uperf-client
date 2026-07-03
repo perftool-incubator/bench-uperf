@@ -221,10 +221,10 @@ esac
 
 cmd+="${cpu_pin_cmd} uperf -R -m test.xml -P $control_port $uopts"
 
-# strip ',' from the passthru options 
+# strip ',' from the passthru options
 passthru_opts=$(echo "$pt_opts" | sed 's/,/ /g')
 options+=" $passthru_opts"
-echo "passthu options: $options"
+echo "passthru options: $options"
 cmd+="$options"
 
 echo "going to run: ${cmd}"
@@ -239,8 +239,8 @@ port=$data_port \
 ${cmd} > uperf-client-result.txt 2>&1
 uperf_rc=$?
 uperf_errors=$(grep -i error uperf-client-result.txt)
-if [ ${uperf_rc} -gt 0 -o -z "${uperf_errors}" ]; then
-    if [ $test_type == "crr" ]; then
+if [ ${uperf_rc} -gt 0 -o -n "${uperf_errors}" ]; then
+    if [ "$test_type" == "crr" ]; then
         # Do not error on this, as it is sadly common for CRR, and the test will resume anyway
         exit 0
     fi

@@ -20,4 +20,4 @@ Name | Description
 -----|------------
 multiplex.json | Defines presets and validations for the uperf network benchmarking tool. Presets include a set of arguments with predefined values, while validations provide regular expressions for validating the format of the arguments.
 rickshaw.json | Describes the configuration for the rickshaw-benchmark and how it interacts with the uperf benchmark, including which files should be transferred to the client and server, and which scripts to execute for starting and stopping the server and client.
-workshow.json | Specifies a workshop environment and requirements, including a source code requirement for the "uperf" tool that is downloaded from GitHub and compiled and installed with some specified commands. The environment has a default user environment which requires the "uperf_src" requirement.
+workshop.json | Specifies a workshop environment and requirements, including a source code requirement for the "uperf" tool that is downloaded from GitHub and compiled and installed with some specified commands. The environment has a default user environment which requires the "uperf_src" requirement.
