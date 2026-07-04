@@ -118,7 +118,7 @@ if [ ! -z "$ifname" ]; then
         if [ "$ipv" == "4" ]; then
             echo "$ifname matches index $ifname_idx, looking for ipv4 (inet) in addr_info:"
             jq '.['$ifname_idx'].addr_info' ip.json
-            # Find the first ipv4 address
+            # Find the first ipv6 address
             addr_idx=`jq '.['$ifname_idx'].addr_info | to_entries | .[] | if (.value.family == "inet") then .key else null end' ip.json | grep -v null | head -1`
             if [ ! -z $addr_idx ]; then
                 echo "Found inet in index $addr_idx:"
@@ -131,7 +131,7 @@ if [ ! -z "$ifname" ]; then
         elif [ "$ipv" == "6" ]; then
             echo "$ifname matches index $ifname_idx, looking for ipv6 (inet6) in addr_info:"
             jq '.['$ifname_idx'].addr_info' ip.json
-            # Find the first ipv4 address
+            # Find the first ipv6 address
             addr_idx=`jq '.['$ifname_idx'].addr_info | to_entries | .[] | if (.value.family == "inet6") then .key else null end' ip.json | grep -v null | head -1`
             if [ ! -z $addr_idx ]; then
                 echo "Found inet in index $addr_idx:"
@@ -210,13 +210,13 @@ cmd="${cpu_pin_cmd} uperf -s -P $control_port"
 # strip ',' from the passthru options 
 passthru_opts=$(echo "$pt_opts" | sed 's/,/ /g')
 options+=" $passthru_opts"
-echo "passthu options: $options"
+echo "passthru options: $options"
 
 cmd+="$options"
 
 echo "going to run: $cmd"
 export MALLOC_CHECK_=2
-$cmd 2>&1 >uperf-server-start.txt &
+$cmd >uperf-server-start.txt 2>&1 &
 pid=$!
 echo $pid >uperf-server.pid
 # Wait a little bit to see if the server errored out
