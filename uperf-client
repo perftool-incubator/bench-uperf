@@ -22,8 +22,23 @@ test_type="stream"
 uopts=""
 cpu_pin=""
 ipv="4"
+namespace=""
+numa_node=""
+sched_priority=""
+busy_poll_us=""
+warmup="1"
+worker_cpu=""
+main_cpu=""
+histogram=""
+histogram_max=""
+histogram_bucket=""
 
-longopts="ipv:,test-type:,protocol:,rsize:,wsize:,nthreads:,remotehost:,duration:,cpu-pin:,think:,passthru:"
+longopts="ipv:,test-type:,protocol:,rsize:,wsize:,nthreads:,remotehost:,duration:,"
+longopts+="cpu-pin:,think:,passthru:,ifname:,"
+longopts+="namespace:,numa-node:,sched-priority:,busy-poll-us:,"
+longopts+="warmup:,worker-cpu:,main-cpu:,"
+longopts+="histogram:,histogram-max:,histogram-bucket:"
+
 opts=$(getopt -q -o "" --longoptions "$longopts" -n "getopt.sh" -- "$@");
 if [ $? -ne 0 ]; then
     exit_error "Unrecognized option specified"
@@ -94,10 +109,74 @@ while true; do
             echo "duration=$duration"
             shift
             ;;
-        --passthru)     # uperf options that user wants passthru
+        --namespace)
+            shift;
+            namespace=$1
+            echo "namespace=$namespace"
+            shift
+            ;;
+        --numa-node)
+            shift;
+            numa_node=$1
+            echo "numa_node=$numa_node"
+            shift
+            ;;
+        --sched-priority)
+            shift;
+            sched_priority=$1
+            echo "sched_priority=$sched_priority"
+            shift
+            ;;
+        --busy-poll-us)
+            shift;
+            busy_poll_us=$1
+            echo "busy_poll_us=$busy_poll_us"
+            shift
+            ;;
+        --warmup)
+            shift;
+            warmup=$1
+            echo "warmup=$warmup"
+            shift
+            ;;
+        --worker-cpu)
+            shift;
+            worker_cpu=$1
+            echo "worker_cpu=$worker_cpu"
+            shift
+            ;;
+        --main-cpu)
+            shift;
+            main_cpu=$1
+            echo "main_cpu=$main_cpu"
+            shift
+            ;;
+        --histogram)
+            shift;
+            histogram=$1
+            echo "histogram=$histogram"
+            shift
+            ;;
+        --histogram-max)
+            shift;
+            histogram_max=$1
+            echo "histogram_max=$histogram_max"
+            shift
+            ;;
+        --histogram-bucket)
+            shift;
+            histogram_bucket=$1
+            echo "histogram_bucket=$histogram_bucket"
+            shift
+            ;;
+        --passthru)
             shift;
             pt_opts=$1
             echo "pt_opts=$pt_opts"
+            shift
+            ;;
+        --ifname)
+            shift;
             shift
             ;;
         --)
@@ -129,12 +208,21 @@ fi
 # Unless the user specifies a specific remotehost argument, this must
 # be sourced from the endpoint (which gets it from the client)
 if [ -z "$remotehost" ]; then
-    echo "--remotehost was not set via cmdline args, checking for resolved service info"
+    echo "--remotehost was not set via cmdline args, checking any messages from the endpoint"
     echo "These files exist in ./msgs/rx:"
     /bin/ls -l msgs/rx
     file="msgs/rx/svc"
+    if [ ! -e "${file}" ]; then
+        file="msgs/rx/endpoint-start-end:1"
+    fi
+    if [ ! -e "${file}" ]; then
+        file="msgs/rx/server-start-end:1"
+    fi
+    if [ ! -e "${file}" ]; then
+        file="msgs/rx/client-start:1"
+    fi
     if [ -e "$file" ]; then
-        echo "Found resolved service info: ${file}"
+        echo "Found $file"
         ipaddr=`jq -r '.svc.ip' $file`
         if [ ! -z "$ipaddr" ]; then
             echo "Found server IP $ipaddr"
@@ -159,23 +247,28 @@ fi
 if [ -z "$remotehost" ]; then
     exit_error "remotehost is not set"
 fi
-# TODO: validate $remotehost with regex
 
-ifname=$(ip route get ${remotehost} | head -n 1 | awk -F" dev " '{ print $2 }' | awk -F" src " '{ print $1 }')
-if [ ! -e /sys/class/net/${ifname} ]; then
-    exit_error "invalid interface '${ifname}' found"
+# Determine interface for NUMA detection (only if no namespace — with
+# namespaces the route lookup happens inside the namespace)
+if [ -z "$namespace" ]; then
+    ifname=$(ip route get ${remotehost} | head -n 1 | awk -F" dev " '{ print $2 }' | awk -F" src " '{ print $1 }')
+    if [ ! -e /sys/class/net/${ifname} ]; then
+        exit_error "invalid interface '${ifname}' found"
+    fi
+else
+    ifname=""
 fi
 
 ifname_numa_node=-1
 ifname_numa_node_cpus=-1
-if [ -e /sys/class/net/${ifname}/device/numa_node ]; then
+if [ -n "$ifname" ] && [ -e /sys/class/net/${ifname}/device/numa_node ]; then
     ifname_numa_node=$(cat /sys/class/net/${ifname}/device/numa_node)
     if [ $ifname_numa_node == "-1" ] && [ "${cpu_pin}" == "numa" ]; then
         exit_error "PCIe has no NUMA locality, but cpu-pin is numa"
     fi
     ifname_numa_node_cpus=$(cat /sys/devices/system/node/node${ifname_numa_node}/cpulist)
 elif [ "${cpu_pin}" == "numa" ]; then
-    exit_error "cannot determine numa node for interface '${ifname}' and cpu-pin is numa"
+    exit_error "cannot determine numa node for interface and cpu-pin is numa"
 fi
 
 # These ports should come from the endpoint, but if for some
@@ -191,8 +284,13 @@ if [ -z "$data_port" ]; then
     echo "data_port was not set, using default of $data_port"
 fi
 if [[ "$test_type" = "crr" ]]; then
-    # show more details of connect/disconnect
     uopts="-tTfa"
+fi
+
+# Build connect options for XML (busy_poll)
+connect_opts=""
+if [ -n "$busy_poll_us" ] && [ "$busy_poll_us" -gt 0 ] 2>/dev/null; then
+    connect_opts="busy_poll=$busy_poll_us"
 fi
 
 /bin/cp /tmp/xml-files/$test_type.xml test.xml
@@ -208,7 +306,46 @@ echo "rsize=$rsize"
 echo "think=$think"
 echo "nthreads=$nthreads"
 echo "protocol=$protocol"
+echo "busy_poll_us=${busy_poll_us:-disabled}"
+echo "warmup=$warmup"
+echo "namespace=${namespace:-none}"
+echo "numa_node=${numa_node:-not bound}"
+echo "sched_priority=${sched_priority:-default}"
+echo "worker_cpu=${worker_cpu:-not pinned}"
+echo "main_cpu=${main_cpu:-not pinned}"
+echo "histogram=${histogram:-disabled}"
 
+# Build uperf flags from our fork's custom options
+uperf_extra_opts=""
+if [ -n "$sched_priority" ] && [ "$sched_priority" -gt 0 ] 2>/dev/null; then
+    uperf_extra_opts+=" -F $sched_priority"
+fi
+if [ -n "$worker_cpu" ]; then
+    uperf_extra_opts+=" -W $worker_cpu"
+fi
+if [ -n "$main_cpu" ]; then
+    uperf_extra_opts+=" -M $main_cpu"
+fi
+if [ -n "$histogram" ]; then
+    uperf_extra_opts+=" -H $histogram"
+fi
+if [ -n "$histogram_max" ] && [ "$histogram_max" -gt 0 ] 2>/dev/null; then
+    uperf_extra_opts+=" -B $histogram_max"
+fi
+if [ -n "$histogram_bucket" ] && [ "$histogram_bucket" -gt 0 ] 2>/dev/null; then
+    uperf_extra_opts+=" -b $histogram_bucket"
+fi
+
+# Build command prefix: numactl, nsenter
+cmd_prefix=""
+if [ -n "$numa_node" ]; then
+    cmd_prefix="numactl --membind=$numa_node"
+fi
+if [ -n "$namespace" ]; then
+    cmd_prefix="$cmd_prefix nsenter --net=/var/run/netns/$namespace"
+fi
+
+# CPU pinning via taskset (legacy cpu-pin param)
 cpu_pin_cmd=""
 case "${cpu_pin}" in
     "numa")
@@ -219,9 +356,9 @@ case "${cpu_pin}" in
 	;;
 esac
 
-cmd+="${cpu_pin_cmd} uperf -R -m test.xml -P $control_port $uopts"
+cmd="${cmd_prefix} ${cpu_pin_cmd} uperf -R -m test.xml -P $control_port $uopts${uperf_extra_opts}"
 
-# strip ',' from the passthru options 
+# strip ',' from the passthru options
 passthru_opts=$(echo "$pt_opts" | sed 's/,/ /g')
 options+=" $passthru_opts"
 echo "passthru options: $options"
@@ -236,12 +373,13 @@ wsize=$wsize \
 rsize=$rsize \
 think=$think \
 port=$data_port \
+warmup=$warmup \
+connect_opts="$connect_opts" \
 ${cmd} > uperf-client-result.txt 2>&1
 uperf_rc=$?
 uperf_errors=$(grep -i error uperf-client-result.txt | grep -v '^Hostname' | grep -v 'saying goodbye')
 if [ ${uperf_rc} -gt 0 -o -n "${uperf_errors}" ]; then
     if [ $test_type == "crr" ]; then
-        # Do not error on this, as it is sadly common for CRR, and the test will resume anyway
         exit 0
     fi
     exit_error "$uperf_errors"

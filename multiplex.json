@@ -6,6 +6,17 @@
             { "arg": "duration", "vals": ["60"] },
             { "arg": "protocol", "vals": ["tcp"] },
             { "arg": "nthreads", "vals": ["1"] }
+        ],
+        "rr-optimal": [
+            { "arg": "test-type", "vals": ["rr"] },
+            { "arg": "protocol", "vals": ["udp"] },
+            { "arg": "wsize", "vals": ["1"] },
+            { "arg": "rsize", "vals": ["1"] },
+            { "arg": "nthreads", "vals": ["1"] },
+            { "arg": "duration", "vals": ["60"] },
+            { "arg": "sched-priority", "vals": ["2"] },
+            { "arg": "busy-poll-us", "vals": ["50"] },
+            { "arg": "warmup", "vals": ["10000"] }
         ]
     },
     "validations": {
@@ -26,8 +37,13 @@
         },
         "positive_integer": {
             "description": "a whole number greater than 0",
-            "args": [ "wsize", "rsize", "nthreads", "duration" ],
+            "args": [ "wsize", "rsize", "nthreads", "duration", "warmup" ],
             "vals": "[1-9][0-9]*"
+        },
+        "non_negative_integer": {
+            "description": "a whole number >= 0",
+            "args": [ "busy-poll-us", "sched-priority", "histogram-max", "histogram-bucket" ],
+            "vals": "0|[1-9][0-9]*"
         },
         "positive_float": {
             "description": "a floating point number greater than 0",
@@ -41,7 +57,7 @@
         },
         "non-empty-string": {
             "description": "any non-empty string",
-            "args": [ "ifname" ],
+            "args": [ "ifname", "namespace", "numa-node", "worker-cpu", "main-cpu", "histogram" ],
             "vals": "^.+$"
         },
         "passthru": {

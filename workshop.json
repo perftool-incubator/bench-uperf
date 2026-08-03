@@ -5,32 +5,50 @@
         }
     },
     "userenvs": [
-	    {
-	        "name": "default",
-	        "requirements": [
+        {
+            "name": "default",
+            "requirements": [
+                "uperf_deps",
                 "uperf_src"
-	        ]
-	    }
+            ]
+        }
     ],
     "requirements": [
-	    {
-	        "name": "uperf_src",
-	        "type": "source",
-	        "source_info": {
-		        "url": "https://github.com/uperf/uperf/archive/1.0.7.tar.gz",
-		        "filename": "1.0.7.tar.gz",
-		        "commands": { 
-		            "unpack": "tar -xzf 1.0.7.tar.gz",
-		            "get_dir": "tar -tzf 1.0.7.tar.gz | head -n 1",
-		            "commands": [
-			            "CFLAGS=\"-ggdb\" ./configure --disable-sctp",
-			            "make",
-			            "make install",
-			            "ldconfig",
-			            "/usr/local/bin/uperf -V"
-		            ]
+        {
+            "name": "uperf_deps",
+            "type": "distro",
+            "distro_info": {
+                "packages": [
+                    "jq",
+                    "numactl",
+                    "autoconf",
+                    "automake",
+                    "libtool",
+                    "gcc",
+                    "make"
+                ]
+            }
+        },
+        {
+            "name": "uperf_src",
+            "type": "source",
+            "source_info": {
+                "url": "https://github.com/rafaelfolco/uperf/archive/d10d782.tar.gz",
+                "filename": "uperf-d10d782.tar.gz",
+                "commands": {
+                    "unpack": "tar -xzf uperf-d10d782.tar.gz",
+                    "get_dir": "tar -tzf uperf-d10d782.tar.gz | head -n 1",
+                    "commands": [
+                        "chmod +x bootstrap",
+                        "./bootstrap",
+                        "CFLAGS=\"-O2 -ggdb\" ./configure --disable-sctp",
+                        "make",
+                        "make install",
+                        "ldconfig",
+                        "/usr/local/bin/uperf -V"
+                    ]
                 }
-	        }
+            }
         }
     ]
 }
