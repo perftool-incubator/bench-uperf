@@ -2,7 +2,11 @@
 <profile name="request-response">
   <group nthreads="$nthreads">
     <transaction iterations="1">
-      <flowop type="connect" options="remotehost=$remotehost protocol=$protocol port=$port"/>
+      <flowop type="connect" options="remotehost=$remotehost protocol=$protocol port=$port $connect_opts"/>
+    </transaction>
+    <transaction iterations="$warmup">
+      <flowop type="write" options="size=$wsize"/>
+      <flowop type="read"  options="size=$rsize"/>
     </transaction>
     <transaction duration="$duration">
       <flowop type="write" options="size=$wsize"/>
