@@ -1,5 +1,5 @@
 #!/bin/bash
-exec >uperf-server-stderrout.txt 
+exec >uperf-server-stderrout.txt
 exec 2>&1
 
 . /usr/bin/uperf-base || (echo "/usr/bin/uperf-base not found"; exit 1)
@@ -14,8 +14,18 @@ data_port=""
 ifname=""
 cpu_pin=""
 ipv="4"
+namespace=""
+numa_node=""
+sched_priority=""
+worker_cpu=""
+main_cpu=""
 
-longopts="ipv:,ifname:,cpu-pin:,passthru:"
+longopts="ipv:,ifname:,cpu-pin:,passthru:,"
+longopts+="namespace:,numa-node:,sched-priority:,"
+longopts+="worker-cpu:,main-cpu:,"
+longopts+="busy-poll-us:,warmup:,histogram:,histogram-max:,histogram-bucket:"
+longopts="${longopts%,}"
+
 opts=$(getopt -q -o "" --longoptions "$longopts" -n "getopt.sh" -- "$@");
 if [ $? -ne 0 ]; then
     exit_error  "Unrecognized option specified"
@@ -41,11 +51,45 @@ while true; do
             echo "ifname=$ifname"
             shift
             ;;
+        --namespace)
+            shift;
+            namespace=$1
+            echo "namespace=$namespace"
+            shift
+            ;;
+        --numa-node)
+            shift;
+            numa_node=$1
+            echo "numa_node=$numa_node"
+            shift
+            ;;
+        --sched-priority)
+            shift;
+            sched_priority=$1
+            echo "sched_priority=$sched_priority"
+            shift
+            ;;
+        --worker-cpu)
+            shift;
+            worker_cpu=$1
+            echo "worker_cpu=$worker_cpu"
+            shift
+            ;;
+        --main-cpu)
+            shift;
+            main_cpu=$1
+            echo "main_cpu=$main_cpu"
+            shift
+            ;;
         --test-type|--nthreads|--protocol|--rsize|--wsize|--remotehost|--duration|--think)
             shift;
             shift;
             ;;
-        --passthru)     # uperf options that user wants passthru
+        --busy-poll-us|--warmup|--histogram|--histogram-max|--histogram-bucket)
+            shift;
+            shift;
+            ;;
+        --passthru)
             shift;
             pt_opts=$1
             echo "pt_opts=$pt_opts"
@@ -87,11 +131,17 @@ let "data_port = $control_port + 1"
 # If --remotehost is not used by the user, they can pass --ifname, a netdev name
 # like "eth0", and the server (below) will try to resolve this to the actual IP address.
 # This allows the user to not know the IP address in advance.
+#
+# When using namespaces, we need to run ip commands inside the namespace
+ip_cmd="ip"
+if [ -n "$namespace" ]; then
+    ip_cmd="nsenter --net=/var/run/netns/$namespace ip"
+fi
+
 ip=""
-ip -j a >ip.json
+$ip_cmd -j a >ip.json
 if [ ! -z "$ifname" ]; then
     if echo $ifname | grep -q '%id:'; then
-        # We have the role ID variable embedded, so we need to extract the value
         before_var=`echo $ifname | sed -e 's/\(.*\)%id:.*%/\1/'`
         after_var=`echo $ifname | sed -e 's/.*%id:.*%\(.*\)/\1/'`
         var=`echo $ifname | sed -e 's/%id:\(.*\)%/\1/' | jq -r '."'$id'"'`
@@ -99,7 +149,7 @@ if [ ! -z "$ifname" ]; then
     fi
     if [ "${ifname}" == "default-route" ]; then
        echo "Looking for default route interface..."
-       ip -j route > route.json
+       $ip_cmd -j route > route.json
        ifname=$(jq --raw-output 'to_entries | .[] | if (.value.dst == "default") then .value.dev else null end' route.json | grep -v null)
        if [ -z "${ifname}" ]; then
            exit_error "could not find default route interface"
@@ -112,13 +162,11 @@ if [ ! -z "$ifname" ]; then
     echo "Searching for IP for interface ${ifname}..."
 
     echo "--ifname=$ifname was found, searching for IP"
-    # Find the element in the 'ip a' array that matches the ifname we are looking for
     ifname_idx=`jq 'to_entries | .[] | if (.value.ifname == "'$ifname'") then .key else null end' ip.json | grep -v null`
     if [ ! -z "$ifname_idx" ]; then
         if [ "$ipv" == "4" ]; then
             echo "$ifname matches index $ifname_idx, looking for ipv4 (inet) in addr_info:"
             jq '.['$ifname_idx'].addr_info' ip.json
-            # Find the first ipv6 address
             addr_idx=`jq '.['$ifname_idx'].addr_info | to_entries | .[] | if (.value.family == "inet") then .key else null end' ip.json | grep -v null | head -1`
             if [ ! -z $addr_idx ]; then
                 echo "Found inet in index $addr_idx:"
@@ -131,7 +179,6 @@ if [ ! -z "$ifname" ]; then
         elif [ "$ipv" == "6" ]; then
             echo "$ifname matches index $ifname_idx, looking for ipv6 (inet6) in addr_info:"
             jq '.['$ifname_idx'].addr_info' ip.json
-            # Find the first ipv6 address
             addr_idx=`jq '.['$ifname_idx'].addr_info | to_entries | .[] | if (.value.family == "inet6") then .key else null end' ip.json | grep -v null | head -1`
             if [ ! -z $addr_idx ]; then
                 echo "Found inet in index $addr_idx:"
@@ -157,8 +204,8 @@ else
     echo "Not going to look for an IP since --ifname was not used."
 fi
 
-# Queue service info for the engine infrastructure to deliver
-echo '{"svc":{"ip":"'$ip'","ports":['$control_port,$data_port']}}' >msgs/tx/svc
+# Queue ip/port info, to be sent to endpoint
+echo '{"recipient":{"type":"all","id":"all"},"user-object":{"svc":{"ip":"'$ip'","ports":['$control_port,$data_port']}}}' >msgs/tx/svc
 
 echo "Existing listening ports:"
 ss -tlnp
@@ -178,11 +225,10 @@ fi
 echo "Existing listening ports (after kill):"
 ss -tlnp
 echo
-#TODO: exit with error if ports still used
 
 ifname_numa_node=-1
 ifname_numa_node_cpus=-1
-if [ -e /sys/class/net/${ifname}/device/numa_node ]; then
+if [ -n "$ifname" ] && [ -e /sys/class/net/${ifname}/device/numa_node ]; then
     ifname_numa_node=$(cat /sys/class/net/${ifname}/device/numa_node)
     if [ $ifname_numa_node == "-1" ] && [ "${cpu_pin}" == "numa" ]; then
         exit_error "PCIe has no NUMA locality, but cpu-pin is numa"
@@ -194,6 +240,32 @@ fi
 
 echo "ifname=${ifname}"
 echo "ifname_numa_node=${ifname_numa_node}"
+echo "namespace=${namespace:-none}"
+echo "numa_node=${numa_node:-not bound}"
+echo "sched_priority=${sched_priority:-default}"
+echo "worker_cpu=${worker_cpu:-not pinned}"
+echo "main_cpu=${main_cpu:-not pinned}"
+
+# Build uperf flags from our fork's custom options
+uperf_extra_opts=""
+if [ -n "$sched_priority" ] && [ "$sched_priority" -gt 0 ] 2>/dev/null; then
+    uperf_extra_opts+=" -F $sched_priority"
+fi
+if [ -n "$worker_cpu" ]; then
+    uperf_extra_opts+=" -W $worker_cpu"
+fi
+if [ -n "$main_cpu" ]; then
+    uperf_extra_opts+=" -M $main_cpu"
+fi
+
+# Build command prefix: numactl, nsenter
+cmd_prefix=""
+if [ -n "$numa_node" ]; then
+    cmd_prefix="numactl --membind=$numa_node"
+fi
+if [ -n "$namespace" ]; then
+    cmd_prefix="$cmd_prefix nsenter --net=/var/run/netns/$namespace"
+fi
 
 cpu_pin_cmd=""
 case "${cpu_pin}" in
@@ -205,9 +277,9 @@ case "${cpu_pin}" in
 	;;
 esac
 
-cmd="${cpu_pin_cmd} uperf -s -P $control_port"
+cmd="${cmd_prefix} ${cpu_pin_cmd} uperf -s -P $control_port${uperf_extra_opts}"
 
-# strip ',' from the passthru options 
+# strip ',' from the passthru options
 passthru_opts=$(echo "$pt_opts" | sed 's/,/ /g')
 options+=" $passthru_opts"
 echo "passthru options: $options"
@@ -216,7 +288,7 @@ cmd+="$options"
 
 echo "going to run: $cmd"
 export MALLOC_CHECK_=2
-$cmd >uperf-server-start.txt 2>&1 &
+$cmd 2>&1 >uperf-server-start.txt &
 pid=$!
 echo $pid >uperf-server.pid
 # Wait a little bit to see if the server errored out
