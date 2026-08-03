@@ -1,0 +1,255 @@
+#!/usr/bin/env python3
+import sys
+import os
+import re
+import json
+import argparse
+from pathlib import Path
+
+toolbox_home = os.environ.get('TOOLBOX_HOME')
+if toolbox_home is None:
+    print("ERROR: This script requires TOOLBOX_HOME to be set", file=sys.stderr)
+    sys.exit(1)
+sys.path.append(os.path.join(toolbox_home, 'python'))
+
+from toolbox.metrics import log_sample, finish_samples
+
+
+def parse_histogram(content):
+    """Parse uperf fork histogram output."""
+    hist = {}
+
+    m = re.search(r'Samples\s*:\s+(\d+)', content)
+    if m:
+        hist['samples'] = int(m.group(1))
+
+    m = re.search(r'Minimum\s*:\s+([\d.]+)\s*us', content)
+    if m:
+        hist['min_us'] = float(m.group(1))
+
+    m = re.search(r'Maximum\s*:\s+([\d.]+)\s*us', content)
+    if m:
+        hist['max_us'] = float(m.group(1))
+
+    m = re.search(r'Average\s*:\s+([\d.]+)\s*us', content)
+    if m:
+        hist['avg_us'] = float(m.group(1))
+
+    for m in re.finditer(r'^\s+([\d.]+)th\s*:\s+(\d+)', content, re.MULTILINE):
+        pct_label = m.group(1)
+        value_us = int(m.group(2))
+        hist['p' + pct_label] = value_us
+
+    return hist if hist else None
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--test-type', dest='test_type', default=None)
+    parser.add_argument('--nthreads', type=int, default=1)
+    parser.add_argument('--warmup', type=int, default=1)
+    parser.add_argument('--remotehost', default=None)
+    parser.add_argument('--wsize', type=int, default=None)
+    parser.add_argument('--rsize', type=int, default=None)
+    parser.add_argument('--think', type=float, default=None)
+    parser.add_argument('--protocol', default=None)
+    parser.add_argument('--duration', type=int, default=None)
+    parser.add_argument('--ifname', default=None)
+    parser.add_argument('--cpu-pin', dest='cpu_pin', default=None)
+    parser.add_argument('--ipv', type=int, default=None)
+    parser.add_argument('--namespace', default=None)
+    parser.add_argument('--numa-node', dest='numa_node', default=None)
+    parser.add_argument('--sched-priority', dest='sched_priority', type=int, default=None)
+    parser.add_argument('--busy-poll-us', dest='busy_poll_us', type=int, default=None)
+    parser.add_argument('--worker-cpu', dest='worker_cpu', default=None)
+    parser.add_argument('--main-cpu', dest='main_cpu', default=None)
+    parser.add_argument('--histogram', default=None)
+    parser.add_argument('--histogram-max', dest='histogram_max', type=int, default=None)
+    parser.add_argument('--histogram-bucket', dest='histogram_bucket', type=int, default=None)
+
+    args = parser.parse_args()
+
+    if args.test_type is None:
+        print("uperf-post-process(): test-type not defined, assuming this is server and exiting")
+        return 0
+
+    result_file = 'uperf-client-result.txt'
+    data_txn = 'Txn3' if args.warmup > 1 else 'Txn2'
+    nthreads = args.nthreads
+
+    if not os.path.exists(result_file):
+        print("uperf-post-process(): result file %s not found" % result_file, file=sys.stderr)
+        print("Is the current directory for a uperf server (no result file)?")
+        return 1
+
+    with open(result_file, 'r') as f:
+        content = f.read()
+
+    hist = parse_histogram(content)
+    has_histogram = hist is not None and 'max_us' in hist
+
+    if has_histogram:
+        primary_metric = 'round-trip-usec-max'
+    elif args.test_type in ('rr', 'ping-pong'):
+        primary_metric = 'transactions-sec'
+    elif args.test_type == 'crr':
+        primary_metric = 'connections-sec'
+    else:
+        primary_metric = 'Gbps'
+
+    prev_ts = None
+    prev_bytes = None
+    prev_ops = None
+    start_ts = None
+    ts = None
+
+    for line in content.splitlines():
+        line = line.strip()
+
+        if args.test_type == 'crr':
+            m = re.match(
+                r'^timestamp_ms:(\d+)\.\d+\s+name:Txn1\s+nr_bytes:(\d+)\s+nr_ops:(\d+)',
+                line
+            )
+            if m:
+                ts = int(m.group(1))
+                bytes_val = int(m.group(2))
+                ops = int(m.group(3))
+
+                if prev_ts is not None:
+                    ts_diff = (ts - prev_ts) / 1000.0
+                    if ts_diff > 0:
+                        gbps = 8.0 * (bytes_val - prev_bytes) / 1e9 / ts_diff
+                        desc = {'source': 'uperf', 'class': 'throughput', 'type': 'Gbps'}
+                        names = {'cmd': 'readandwrite'}
+                        sample = {'end': ts, 'value': gbps}
+                        log_sample('0', desc, names, sample)
+
+                        cps = (ops - prev_ops) / ts_diff / 5
+                        desc = {'source': 'uperf', 'class': 'throughput', 'type': 'connections-sec'}
+                        sample = {'end': ts, 'value': float(cps)}
+                        log_sample('0', desc, {}, sample)
+
+                        if cps > 0:
+                            desc = {'source': 'uperf', 'class': 'count', 'type': 'round-trip-usec'}
+                            sample = {'end': ts, 'value': float(nthreads / cps * 1e6)}
+                            log_sample('0', desc, {}, sample)
+
+                prev_ts = ts
+                prev_bytes = bytes_val
+                prev_ops = ops
+        else:
+            m = re.match(
+                r'^Difference\(%\)\s+(-?[\d.]+)%\s+(-?[\d.]+)%\s+(-?[\d.]+)%\s+(-?[\d.]+)%\s+(-?[\d.]+)%',
+                line
+            )
+            if m and start_ts is not None and ts is not None:
+                tput_val = float(m.group(3))
+                desc = {'source': 'uperf', 'class': 'count', 'type': 'throughput-delta-pct'}
+                sample = {'begin': start_ts, 'end': ts, 'value': tput_val}
+                log_sample('0', desc, {}, sample)
+
+            pattern = r'^timestamp_ms:(\d+)\.\d+\s+name:%s\s+nr_bytes:(\d+)\s+nr_ops:(\d+)' % data_txn
+            m = re.match(pattern, line)
+            if m:
+                ts = int(m.group(1))
+                bytes_val = int(m.group(2))
+                ops = int(m.group(3))
+
+                if prev_ts is not None:
+                    ts_diff = (ts - prev_ts) / 1000.0
+                    if ts_diff > 0:
+                        gbps = 8.0 * (bytes_val - prev_bytes) / 1e9 / ts_diff
+                        desc = {'source': 'uperf', 'class': 'throughput', 'type': 'Gbps'}
+                        names = {'cmd': 'readandwrite'}
+                        sample = {'end': ts, 'value': gbps}
+                        log_sample('0', desc, names, sample)
+
+                        if args.test_type in ('rr', 'ping-pong'):
+                            tps = (ops - prev_ops) / ts_diff / 2
+                            desc = {'source': 'uperf', 'class': 'throughput', 'type': 'transactions-sec'}
+                            sample = {'end': ts, 'value': float(tps)}
+                            log_sample('0', desc, {}, sample)
+
+                            if tps > 0:
+                                desc = {'source': 'uperf', 'class': 'count', 'type': 'round-trip-usec'}
+                                sample = {'end': ts, 'value': float(nthreads / tps * 1e6)}
+                                log_sample('0', desc, {}, sample)
+                else:
+                    start_ts = ts
+
+                prev_ts = ts
+                prev_bytes = bytes_val
+                prev_ops = ops
+
+    if has_histogram and start_ts is not None and ts is not None:
+        begin_ms = start_ts
+        end_ms = ts
+
+        desc = {'source': 'uperf', 'class': 'count', 'type': 'round-trip-usec-max'}
+        sample = {'begin': begin_ms, 'end': end_ms, 'value': hist['max_us']}
+        log_sample('0', desc, {}, sample)
+
+        if 'p99.9' in hist:
+            desc = {'source': 'uperf', 'class': 'count', 'type': 'round-trip-usec-p99.9'}
+            sample = {'begin': begin_ms, 'end': end_ms, 'value': float(hist['p99.9'])}
+            log_sample('0', desc, {}, sample)
+
+        if 'p50' in hist:
+            desc = {'source': 'uperf', 'class': 'count', 'type': 'round-trip-usec-p50'}
+            sample = {'begin': begin_ms, 'end': end_ms, 'value': float(hist['p50'])}
+            log_sample('0', desc, {}, sample)
+
+        if 'p99' in hist:
+            desc = {'source': 'uperf', 'class': 'count', 'type': 'round-trip-usec-p99'}
+            sample = {'begin': begin_ms, 'end': end_ms, 'value': float(hist['p99'])}
+            log_sample('0', desc, {}, sample)
+
+        if 'p99.99' in hist:
+            desc = {'source': 'uperf', 'class': 'count', 'type': 'round-trip-usec-p99.99'}
+            sample = {'begin': begin_ms, 'end': end_ms, 'value': float(hist['p99.99'])}
+            log_sample('0', desc, {}, sample)
+
+        if 'min_us' in hist:
+            desc = {'source': 'uperf', 'class': 'count', 'type': 'round-trip-usec-min'}
+            sample = {'begin': begin_ms, 'end': end_ms, 'value': hist['min_us']}
+            log_sample('0', desc, {}, sample)
+
+        if 'avg_us' in hist:
+            desc = {'source': 'uperf', 'class': 'count', 'type': 'round-trip-usec-avg'}
+            sample = {'begin': begin_ms, 'end': end_ms, 'value': hist['avg_us']}
+            log_sample('0', desc, {}, sample)
+
+        if 'samples' in hist:
+            desc = {'source': 'uperf', 'class': 'count', 'type': 'total-samples'}
+            sample = {'begin': begin_ms, 'end': end_ms, 'value': float(hist['samples'])}
+            log_sample('0', desc, {}, sample)
+
+    metric_file_name = finish_samples()
+
+    iter_sample = {
+        'rickshaw-bench-metric': {
+            'schema': {
+                'version': '2021.04.12'
+            }
+        },
+        'benchmark': 'uperf',
+        'primary-period': 'measurement',
+        'primary-metric': primary_metric,
+        'periods': [
+            {
+                'name': 'measurement',
+                'metric-files': [metric_file_name]
+            }
+        ]
+    }
+
+    os.makedirs('postprocess', exist_ok=True)
+    with open('postprocess/post-process-data.json', 'w') as f:
+        json.dump(iter_sample, f, indent=4)
+
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())
