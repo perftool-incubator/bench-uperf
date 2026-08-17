@@ -182,8 +182,20 @@ echo
 
 ifname_numa_node=-1
 ifname_numa_node_cpus=-1
-if [ -e /sys/class/net/${ifname}/device/numa_node ]; then
-    ifname_numa_node=$(cat /sys/class/net/${ifname}/device/numa_node)
+ifname_numa_node_lookup=${ifname}
+if [ ! -e /sys/class/net/${ifname}/device/numa_node ]; then
+    # A VLAN (or other stacked virtual interface) has no "device" of its
+    # own in sysfs -- fall back to the underlying physical interface,
+    # exposed via a lower_<iface> symlink, to find its NUMA node instead.
+    for lower_path in /sys/class/net/${ifname}/lower_*; do
+        if [ -e "${lower_path}" ]; then
+            ifname_numa_node_lookup=$(basename "${lower_path}" | sed 's/^lower_//')
+            break
+        fi
+    done
+fi
+if [ -e /sys/class/net/${ifname_numa_node_lookup}/device/numa_node ]; then
+    ifname_numa_node=$(cat /sys/class/net/${ifname_numa_node_lookup}/device/numa_node)
     if [ $ifname_numa_node == "-1" ] && [ "${cpu_pin}" == "numa" ]; then
         exit_error "PCIe has no NUMA locality, but cpu-pin is numa"
     fi
