@@ -169,20 +169,28 @@ fi
 ifname_numa_node=-1
 ifname_numa_node_cpus=-1
 ifname_numa_node_lookup=${ifname}
-if [ ! -e /sys/class/net/${ifname}/device/numa_node ]; then
-    # A VLAN (or other stacked virtual interface) has no "device" of its
-    # own in sysfs -- fall back to the underlying physical interface,
-    # exposed via a lower_<iface> symlink, to find its NUMA node instead.
-    for lower_path in /sys/class/net/${ifname}/lower_*; do
+# A VLAN (or other stacked virtual interface, e.g. a VLAN on top of a
+# bond) has no "device" of its own in sysfs -- walk the lower_<iface>
+# symlink(s) sysfs exposes for stacked interfaces until we reach a
+# physical interface with a numa_node file, or run out of lower
+# interfaces to follow.
+while [ ! -e /sys/class/net/${ifname_numa_node_lookup}/device/numa_node ]; do
+    found_lower=""
+    for lower_path in /sys/class/net/${ifname_numa_node_lookup}/lower_*; do
         if [ -e "${lower_path}" ]; then
-            ifname_numa_node_lookup=$(basename "${lower_path}" | sed 's/^lower_//')
+            lower_iface=${lower_path##*/}
+            ifname_numa_node_lookup=${lower_iface#lower_}
+            found_lower=1
             break
         fi
     done
-fi
+    if [ -z "${found_lower}" ]; then
+        break
+    fi
+done
 if [ -e /sys/class/net/${ifname_numa_node_lookup}/device/numa_node ]; then
     ifname_numa_node=$(cat /sys/class/net/${ifname_numa_node_lookup}/device/numa_node)
-    if [ $ifname_numa_node == "-1" ] && [ "${cpu_pin}" == "numa" ]; then
+    if [ "${ifname_numa_node}" == "-1" ] && [ "${cpu_pin}" == "numa" ]; then
         exit_error "PCIe has no NUMA locality, but cpu-pin is numa"
     fi
     ifname_numa_node_cpus=$(cat /sys/devices/system/node/node${ifname_numa_node}/cpulist)
