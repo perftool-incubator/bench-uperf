@@ -204,13 +204,20 @@ while [ ! -e /sys/class/net/${ifname_numa_node_lookup}/device/numa_node ]; do
 done
 if [ -e /sys/class/net/${ifname_numa_node_lookup}/device/numa_node ]; then
     ifname_numa_node=$(cat /sys/class/net/${ifname_numa_node_lookup}/device/numa_node)
-    if [ "${ifname_numa_node}" == "-1" ] && [ "${cpu_pin}" == "numa" ]; then
-        exit_error "PCIe has no NUMA locality, but cpu-pin is numa"
+    if [ "${ifname_numa_node}" == "-1" ]; then
+        if [ "${cpu_pin}" == "numa" ]; then
+            exit_error "PCIe has no NUMA locality, but cpu-pin is numa"
+        fi
+        # VM case, use numa 0
+        ifname_numa_node=0
     fi
-    ifname_numa_node_cpus=$(cat /sys/devices/system/node/node${ifname_numa_node}/cpulist)
 elif [ "${cpu_pin}" == "numa" ]; then
     exit_error "cannot determine numa node for interface '${ifname}' and cpu-pin is numa"
+else
+    # When there is no numa associated with ifname, just use numa 0
+    ifname_numa_node=0
 fi
+ifname_numa_node_cpus=$(cat /sys/devices/system/node/node${ifname_numa_node}/cpulist)
 
 echo "ifname=${ifname}"
 echo "ifname_numa_node=${ifname_numa_node}"
