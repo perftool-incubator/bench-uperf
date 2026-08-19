@@ -168,15 +168,42 @@ fi
 
 ifname_numa_node=-1
 ifname_numa_node_cpus=-1
-if [ -e /sys/class/net/${ifname}/device/numa_node ]; then
-    ifname_numa_node=$(cat /sys/class/net/${ifname}/device/numa_node)
-    if [ $ifname_numa_node == "-1" ] && [ "${cpu_pin}" == "numa" ]; then
-        exit_error "PCIe has no NUMA locality, but cpu-pin is numa"
+ifname_numa_node_lookup=${ifname}
+# A VLAN (or other stacked virtual interface, e.g. a VLAN on top of a
+# bond) has no "device" of its own in sysfs -- walk the lower_<iface>
+# symlink(s) sysfs exposes for stacked interfaces until we reach a
+# physical interface with a numa_node file, or run out of lower
+# interfaces to follow.
+while [ ! -e /sys/class/net/${ifname_numa_node_lookup}/device/numa_node ]; do
+    found_lower=""
+    for lower_path in /sys/class/net/${ifname_numa_node_lookup}/lower_*; do
+        if [ -e "${lower_path}" ]; then
+            lower_iface=${lower_path##*/}
+            ifname_numa_node_lookup=${lower_iface#lower_}
+            found_lower=1
+            break
+        fi
+    done
+    if [ -z "${found_lower}" ]; then
+        break
     fi
-    ifname_numa_node_cpus=$(cat /sys/devices/system/node/node${ifname_numa_node}/cpulist)
+done
+if [ -e /sys/class/net/${ifname_numa_node_lookup}/device/numa_node ]; then
+    ifname_numa_node=$(cat /sys/class/net/${ifname_numa_node_lookup}/device/numa_node)
+    if [ "${ifname_numa_node}" == "-1" ]; then
+        if [ "${cpu_pin}" == "numa" ]; then
+            exit_error "PCIe has no NUMA locality, but cpu-pin is numa"
+        fi
+        # VM case, use numa 0
+        ifname_numa_node=0
+    fi
 elif [ "${cpu_pin}" == "numa" ]; then
     exit_error "cannot determine numa node for interface '${ifname}' and cpu-pin is numa"
+else
+    # When there is no numa associated with ifname, just use numa 0
+    ifname_numa_node=0
 fi
+ifname_numa_node_cpus=$(cat /sys/devices/system/node/node${ifname_numa_node}/cpulist)
 
 # These ports should come from the endpoint, but if for some
 # reason they don't the default port numbers are calculated
