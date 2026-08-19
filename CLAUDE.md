@@ -12,6 +12,7 @@ Scripts and configuration to run the uperf network performance benchmark within 
 |------|---------|
 | `rickshaw.json` | Rickshaw integration: client/server scripts, parameter transformations |
 | `multiplex.json` | Parameter validation rules, unit conversions, and presets for multiplex |
+| `benchmark-metadata.json` | Machine-readable description and CDM-indexed source/type list (consumed by `crucible benchmarks list`) |
 | `uperf-base` | Base setup: sources toolbox bench-base library |
 | `uperf-client` | Client-side benchmark execution with configurable threads, protocol, sizes, duration |
 | `uperf-server-start` / `uperf-server-stop` | Server lifecycle management |
